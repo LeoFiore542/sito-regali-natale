@@ -14,7 +14,6 @@ import { Navbar } from './components/Navbar';
 import { MemberSelector } from './components/MemberSelector';
 import { GiftCard } from './components/GiftCard';
 import { AddGiftModal } from './components/AddGiftModal';
-import { BackupModal } from './components/BackupModal';
 import { ManageMembersModal } from './components/ManageMembersModal';
 import { WhoAreYouModal } from './components/WhoAreYouModal';
 import { EditProfileModal } from './components/EditProfileModal';
@@ -40,7 +39,6 @@ export const App: React.FC = () => {
   // Modali
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [giftToEdit, setGiftToEdit] = useState<GiftItem | null>(null);
-  const [isBackupModalOpen, setIsBackupModalOpen] = useState(false);
   const [isMembersModalOpen, setIsMembersModalOpen] = useState(false);
 
   // Caricamento iniziale & Controllo Reset Link (?reset=1)
@@ -299,7 +297,6 @@ export const App: React.FC = () => {
           setGiftToEdit(null);
           setIsAddModalOpen(true);
         }}
-        onOpenBackupModal={() => setIsBackupModalOpen(true)}
         onOpenMembersModal={() => setIsMembersModalOpen(true)}
         snowing={snowing}
         toggleSnow={() => setSnowing(!snowing)}
@@ -517,23 +514,14 @@ export const App: React.FC = () => {
               </>
             )}
             {isLeoAdmin && (
-              <>
-                <button
-                  onClick={() => setIsAdminPanelOpen(true)}
-                  className="hover:text-amber-600 text-amber-700 font-bold transition-colors flex items-center gap-1"
-                >
-                  <Crown className="w-3.5 h-3.5 text-amber-500" />
-                  <span>Pannello Admin</span>
-                </button>
-                <span>•</span>
-              </>
+              <button
+                onClick={() => setIsAdminPanelOpen(true)}
+                className="hover:text-amber-600 text-amber-700 font-bold transition-colors flex items-center gap-1"
+              >
+                <Crown className="w-3.5 h-3.5 text-amber-500" />
+                <span>Pannello Admin</span>
+              </button>
             )}
-            <button
-              onClick={() => setIsBackupModalOpen(true)}
-              className="hover:text-red-600 transition-colors"
-            >
-              Condividi su WhatsApp
-            </button>
           </div>
         </div>
       </footer>
@@ -586,19 +574,6 @@ export const App: React.FC = () => {
             : selectedMemberId
         }
         giftToEdit={giftToEdit}
-      />
-
-      {/* Modale Condividi & Backup */}
-      <BackupModal
-        isOpen={isBackupModalOpen}
-        onClose={() => setIsBackupModalOpen(false)}
-        members={members}
-        gifts={gifts}
-        currentUserId={currentUserId}
-        onDataImported={({ members, gifts }) => {
-          setMembers(members);
-          setGifts(gifts);
-        }}
       />
 
       {/* Modale Gestione Membri */}

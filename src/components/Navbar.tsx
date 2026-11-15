@@ -1,5 +1,5 @@
 import React from 'react';
-import { Gift, Plus, Sparkles, Share2, Users, Palette, Crown } from 'lucide-react';
+import { Gift, Plus, Sparkles, Users, Palette, Crown } from 'lucide-react';
 import { FamilyMember } from '../types';
 
 interface NavbarProps {
@@ -9,7 +9,6 @@ interface NavbarProps {
   onOpenAdmin?: () => void;
   onOpenEditProfile: () => void;
   onOpenAddModal: () => void;
-  onOpenBackupModal: () => void;
   onOpenMembersModal: () => void;
   snowing: boolean;
   toggleSnow: () => void;
@@ -23,7 +22,6 @@ export const Navbar: React.FC<NavbarProps> = ({
   onOpenAdmin,
   onOpenEditProfile,
   onOpenAddModal,
-  onOpenBackupModal,
   onOpenMembersModal,
   snowing,
   toggleSnow,
@@ -55,7 +53,7 @@ export const Navbar: React.FC<NavbarProps> = ({
               </div>
             </div>
 
-            {/* Azioni Navbar Desktop & Mobile */}
+            {/* Azioni Navbar */}
             <div className="flex items-center space-x-1.5 sm:space-x-2.5 shrink-0">
               {/* Badge Admin Leo (se Admin) */}
               {isAdmin && onOpenAdmin && (
@@ -103,16 +101,6 @@ export const Navbar: React.FC<NavbarProps> = ({
               >
                 <Users className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-emerald-700" />
                 <span className="hidden sm:inline">Famiglia</span>
-              </button>
-
-              {/* Condividi */}
-              <button
-                onClick={onOpenBackupModal}
-                title="Condividi su WhatsApp o salva backup"
-                className="p-1.5 sm:px-2.5 sm:py-2 rounded-xl border border-slate-200 text-slate-700 hover:bg-slate-50 flex items-center space-x-1 text-xs font-medium transition-colors"
-              >
-                <Share2 className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-amber-600" />
-                <span className="hidden sm:inline">Condividi</span>
               </button>
 
               {/* Bottone Aggiungi Regalo (Desktop) */}
