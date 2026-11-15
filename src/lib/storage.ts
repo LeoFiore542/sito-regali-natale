@@ -57,10 +57,23 @@ const localStorageFallback = {
   }
 };
 
+export const OFFICIAL_FAMILY_MEMBERS: FamilyMember[] = [
+  { id: 'leo', name: 'Leo', avatar: '🎄', createdAt: 1 },
+  { id: 'benedetta', name: 'Benedetta', avatar: '✨', createdAt: 2 },
+  { id: 'simone', name: 'Simone', avatar: '⛄', createdAt: 3 },
+  { id: 'roberto', name: 'Roberto', avatar: '🎅', createdAt: 4 },
+  { id: 'rita', name: 'Rita', avatar: '🤶', createdAt: 5 },
+  { id: 'fabrizio', name: 'Fabrizio', avatar: '🦌', createdAt: 6 },
+  { id: 'francesca', name: 'Francesca', avatar: '⭐', createdAt: 7 },
+  { id: 'mario', name: 'Mario', avatar: '🎁', createdAt: 8 },
+  { id: 'francesco', name: 'Francesco', avatar: '🧝', createdAt: 9 },
+  { id: 'giuliana', name: 'Giuliana', avatar: '🍪', createdAt: 10 },
+];
+
 export async function loadInitialData(): Promise<{ members: FamilyMember[]; gifts: GiftItem[] }> {
   try {
     const db = await openDB();
-    const members = await new Promise<FamilyMember[]>((resolve, reject) => {
+    let members = await new Promise<FamilyMember[]>((resolve, reject) => {
       const tx = db.transaction(STORE_MEMBERS, 'readonly');
       const store = tx.objectStore(STORE_MEMBERS);
       const req = store.getAll();
@@ -68,7 +81,7 @@ export async function loadInitialData(): Promise<{ members: FamilyMember[]; gift
       req.onerror = () => reject(req.error);
     });
 
-    const gifts = await new Promise<GiftItem[]>((resolve, reject) => {
+    let gifts = await new Promise<GiftItem[]>((resolve, reject) => {
       const tx = db.transaction(STORE_GIFTS, 'readonly');
       const store = tx.objectStore(STORE_GIFTS);
       const req = store.getAll();
@@ -76,65 +89,46 @@ export async function loadInitialData(): Promise<{ members: FamilyMember[]; gift
       req.onerror = () => reject(req.error);
     });
 
-    if (members.length === 0) {
-      // Dati demo iniziali per un'accoglienza calorosa
-      const defaultMembers: FamilyMember[] = [
-        { id: '1', name: 'Mamma', avatar: '🤶', color: 'bg-rose-500', createdAt: Date.now() - 3000 },
-        { id: '2', name: 'Papà', avatar: '🎅', color: 'bg-emerald-600', createdAt: Date.now() - 2000 },
-        { id: '3', name: 'Io', avatar: '🎄', color: 'bg-amber-500', createdAt: Date.now() - 1000 },
-      ];
-      const defaultGifts: GiftItem[] = [
-        {
-          id: 'g-1',
-          memberId: '1',
-          title: 'Macchina per caffè espresso compatta',
-          description: 'Colore rosso o nero, possibilmente compatibile con cialde ESE o polvere.',
-          link: 'https://www.amazon.it',
-          imageUrl: 'https://images.unsplash.com/photo-1517668808822-9ebb02f2a0e6?w=600&auto=format&fit=crop&q=80',
-          price: '85€',
-          priority: 'alta',
-          createdAt: Date.now() - 1500,
-        },
-        {
-          id: 'g-2',
-          memberId: '2',
-          title: 'Set di attrezzi da barbecue in acciaio',
-          description: 'Con valigetta in alluminio e guanto termico.',
-          link: 'https://www.amazon.it',
-          imageUrl: 'https://images.unsplash.com/photo-1555041469-a586c61ea9bc?w=600&auto=format&fit=crop&q=80',
-          price: '40€',
-          priority: 'media',
-          createdAt: Date.now() - 1200,
-        },
-        {
-          id: 'g-3',
-          memberId: '3',
-          title: 'Cuffie Bluetooth con cancellazione rumore',
-          description: 'Over-ear comode per lavorare e ascoltare musica in viaggio.',
-          link: 'https://www.amazon.it',
-          imageUrl: 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=600&auto=format&fit=crop&q=80',
-          price: '99€',
-          priority: 'alta',
-          createdAt: Date.now() - 800,
-        }
-      ];
+    const isMigrated = localStorage.getItem('natale_family_v2_migrated') === 'true';
 
-      for (const m of defaultMembers) {
-        await saveMember(m);
+    // Se non sono ancora stati caricati i membri della famiglia o se c'erano i vecchi dati finti
+    const hasOldDummies = members.some((m) => m.name === 'Mamma' || m.name === 'Papà' || m.name === 'Io');
+
+    if (members.length === 0 || !isMigrated || hasOldDummies) {
+      const tx = db.transaction([STORE_MEMBERS, STORE_GIFTS], 'readwrite');
+      const mStore = tx.objectStore(STORE_MEMBERS);
+      const gStore = tx.objectStore(STORE_GIFTS);
+
+      // Pulisci vecchi membri demo
+      mStore.clear();
+      // Se c'erano solo i regali finti demo (g-1, g-2, g-3), ripuliscili
+      const userGifts = gifts.filter((g) => !['g-1', 'g-2', 'g-3'].includes(g.id));
+      gStore.clear();
+
+      for (const m of OFFICIAL_FAMILY_MEMBERS) {
+        mStore.put(m);
       }
-      for (const g of defaultGifts) {
-        await saveGift(g);
+      for (const g of userGifts) {
+        gStore.put(g);
       }
 
-      return { members: defaultMembers, gifts: defaultGifts };
+      await new Promise<void>((resolve) => {
+        tx.oncomplete = () => resolve();
+      });
+
+      localStorage.setItem('natale_family_v2_migrated', 'true');
+      members = OFFICIAL_FAMILY_MEMBERS;
+      gifts = userGifts;
+      return { members, gifts };
     }
 
     return { members, gifts };
   } catch (e) {
     console.warn('Fallback a localStorage:', e);
-    const members = localStorageFallback.getMembers();
-    const gifts = localStorageFallback.getGifts();
-    return { members, gifts };
+    localStorage.setItem('natale_members', JSON.stringify(OFFICIAL_FAMILY_MEMBERS));
+    const gifts = localStorageFallback.getGifts().filter((g) => !['g-1', 'g-2', 'g-3'].includes(g.id));
+    localStorageFallback.saveGifts(gifts);
+    return { members: OFFICIAL_FAMILY_MEMBERS, gifts };
   }
 }
 
