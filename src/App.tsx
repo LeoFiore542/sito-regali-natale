@@ -20,10 +20,26 @@ import { ManageMembersModal } from './components/ManageMembersModal';
 import { WhoAreYouModal } from './components/WhoAreYouModal';
 import { EditProfileModal } from './components/EditProfileModal';
 import { AdminPanelModal } from './components/AdminPanelModal';
+import { HowItWorksModal } from './components/HowItWorksModal';
 import { SnowEffect } from './components/SnowEffect';
-import { Plus, Search, Sparkles, Palette, Crown } from 'lucide-react';
+import {
+  Plus,
+  Search,
+  Sparkles,
+  Palette,
+  Crown,
+  HelpCircle,
+  EyeOff,
+  CheckCircle2,
+  Gift,
+  X,
+  ArrowRight,
+} from 'lucide-react';
 
 const CURRENT_USER_KEY = 'natale_logged_user_id';
+const HIDE_INLINE_GUIDE_KEY = 'natale_hide_inline_guide';
+
+type AvailabilityFilter = 'all' | 'available' | 'reserved';
 
 export const App: React.FC = () => {
   const [members, setMembers] = useState<FamilyMember[]>([]);
@@ -33,10 +49,15 @@ export const App: React.FC = () => {
   const [isWhoAreYouOpen, setIsWhoAreYouOpen] = useState(false);
   const [isEditProfileOpen, setIsEditProfileOpen] = useState(false);
   const [isAdminPanelOpen, setIsAdminPanelOpen] = useState(false);
+  const [isGuideOpen, setIsGuideOpen] = useState(false);
+  const [showInlineGuide, setShowInlineGuide] = useState(() => {
+    return localStorage.getItem(HIDE_INLINE_GUIDE_KEY) !== 'true';
+  });
   const [profileToEdit, setProfileToEdit] = useState<FamilyMember | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [snowing, setSnowing] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
+  const [availabilityFilter, setAvailabilityFilter] = useState<AvailabilityFilter>('all');
 
   // Modali
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -45,13 +66,11 @@ export const App: React.FC = () => {
 
   // Caricamento iniziale & Controllo Reset Link (?reset=1)
   useEffect(() => {
-    // Controllo sblocco da link magico Admin (es: ?reset=1)
     const urlParams = new URLSearchParams(window.location.search);
     const hasResetParam = urlParams.get('reset') === '1' || urlParams.get('reset') === 'true';
 
     if (hasResetParam) {
       localStorage.removeItem(CURRENT_USER_KEY);
-      // Pulisce l'URL senza ricaricare la pagina
       window.history.replaceState({}, document.title, window.location.pathname);
     }
 
@@ -66,7 +85,6 @@ export const App: React.FC = () => {
         setSelectedMemberId(savedUser);
         setIsWhoAreYouOpen(false);
       } else {
-        // Nessun utente memorizzato o reset richiesto: mostra "Chi sei?"
         setIsWhoAreYouOpen(true);
         setSelectedMemberId('all');
       }
@@ -74,7 +92,6 @@ export const App: React.FC = () => {
       setIsLoading(false);
     });
 
-    // Ascolto in tempo reale da Firestore per aggiornamenti istantanei tra telefoni
     const unsubGifts = subscribeToGifts((updatedGifts) => {
       setGifts(updatedGifts);
       setIsLoading(false);
@@ -102,7 +119,13 @@ export const App: React.FC = () => {
   // Aggiorna membro visualizzato
   const handleSelectMember = (id: string | 'all') => {
     setSelectedMemberId(id);
+    setAvailabilityFilter('all');
     setActiveMemberId(id === 'all' ? null : id);
+  };
+
+  const handleDismissInlineGuide = () => {
+    setShowInlineGuide(false);
+    localStorage.setItem(HIDE_INLINE_GUIDE_KEY, 'true');
   };
 
   // Conteggio regali per membro (con deduplicazione sicura)
@@ -124,7 +147,7 @@ export const App: React.FC = () => {
     setMembers((prev) => prev.map((m) => (m.id === updated.id ? updated : m)));
   };
 
-  // Elimina membro (solo da pannello famiglia)
+  // Elimina membro
   const handleDeleteMember = async (id: string) => {
     if (id === currentUserId) {
       alert('Non puoi eliminare il tuo stesso profilo.');
@@ -170,33 +193,23 @@ export const App: React.FC = () => {
 
   // Toggle "Prenotato / Ci penso io"
   const handleToggleReserve = async (gift: GiftItem) => {
-    // Non puoi prenotare i tuoi stessi regali!
     if (gift.memberId === currentUserId) {
-      alert("Non puoi prenotare i tuoi stessi regali! Lascia che ci pensi la famiglia 🎅🎁");
+      alert('Non puoi prenotare i tuoi stessi regali! Lascia che ci pensi la famiglia 🎅🎁');
       return;
     }
 
-    const currentUserObj = members.find((m) => m.id === currentUserId);
-    if (!currentUserObj) {
-      setIsWhoAreYouOpen(true);
-      return;
-    }
+    const activeUser = members.find((m) => m.id === currentUserId);
 
-    let buyerName: string | null = null;
-    if (!gift.reservedBy) {
-      buyerName = currentUserObj.name;
+    if (gift.reservedBy) {
+      const updated: GiftItem = { ...gift, reservedBy: null };
+      await saveGift(updated);
+      setGifts((prev) => prev.map((g) => (g.id === gift.id ? updated : g)));
     } else {
-      const confirmRemove = confirm(`Vuoi rimuovere la prenotazione "Preso da ${gift.reservedBy}"?`);
-      if (!confirmRemove) return;
-      buyerName = null;
+      const reserverName = activeUser?.name || 'Un familiare';
+      const updated: GiftItem = { ...gift, reservedBy: reserverName };
+      await saveGift(updated);
+      setGifts((prev) => prev.map((g) => (g.id === gift.id ? updated : g)));
     }
-
-    const updated: GiftItem = {
-      ...gift,
-      reservedBy: buyerName,
-    };
-    await saveGift(updated);
-    setGifts((prev) => prev.map((g) => (g.id === updated.id ? updated : g)));
   };
 
   // Funzioni ESCLUSIVE Admin Leo
@@ -240,26 +253,6 @@ export const App: React.FC = () => {
     alert('Database ripristinato ai 10 membri ufficiali di famiglia.');
   };
 
-  // Filtra regali (con deduplicazione sicura per ID)
-  const filteredGifts = useMemo(() => {
-    const seen = new Set<string>();
-    return gifts.filter((gift) => {
-      if (seen.has(gift.id)) return false;
-      seen.add(gift.id);
-
-      if (selectedMemberId !== 'all' && gift.memberId !== selectedMemberId) {
-        return false;
-      }
-      if (searchQuery.trim()) {
-        const q = searchQuery.toLowerCase();
-        const matchTitle = gift.title.toLowerCase().includes(q);
-        const matchDesc = gift.description?.toLowerCase().includes(q) ?? false;
-        return matchTitle || matchDesc;
-      }
-      return true;
-    });
-  }, [gifts, selectedMemberId, searchQuery]);
-
   // Membro correntemente visualizzato
   const currentMember = useMemo(() => {
     if (selectedMemberId === 'all') return null;
@@ -271,11 +264,45 @@ export const App: React.FC = () => {
     return members.find((m) => m.id === currentUserId) || null;
   }, [members, currentUserId]);
 
+  // Sto guardando la MIA lista personale?
+  const isViewingMyOwnList = Boolean(
+    currentMember && currentUserId && currentMember.id === currentUserId
+  );
+
   // È Leo l'admin del sito?
   const isLeoAdmin = useMemo(() => {
     if (!loggedUser) return false;
     return loggedUser.id === 'leo' || loggedUser.name.trim().toLowerCase() === 'leo';
   }, [loggedUser]);
+
+  // Filtra regali (con deduplicazione sicura e protezione anti-spoiler sui propri regali)
+  const filteredGifts = useMemo(() => {
+    const seen = new Set<string>();
+    return gifts.filter((gift) => {
+      if (seen.has(gift.id)) return false;
+      seen.add(gift.id);
+
+      if (selectedMemberId !== 'all' && gift.memberId !== selectedMemberId) {
+        return false;
+      }
+
+      // Filtro disponibilità (solo sui regali degli altri per non spoilerare mai i propri!)
+      if (!isViewingMyOwnList && availabilityFilter !== 'all') {
+        const isMine = gift.memberId === currentUserId;
+        const effectivelyReserved = !isMine && Boolean(gift.reservedBy);
+        if (availabilityFilter === 'available' && effectivelyReserved) return false;
+        if (availabilityFilter === 'reserved' && !effectivelyReserved) return false;
+      }
+
+      if (searchQuery.trim()) {
+        const q = searchQuery.toLowerCase();
+        const matchTitle = gift.title.toLowerCase().includes(q);
+        const matchDesc = gift.description?.toLowerCase().includes(q) ?? false;
+        return matchTitle || matchDesc;
+      }
+      return true;
+    });
+  }, [gifts, selectedMemberId, searchQuery, availabilityFilter, isViewingMyOwnList, currentUserId]);
 
   // Tema del banner attivo
   const activeBannerTheme = useMemo(() => {
@@ -296,19 +323,22 @@ export const App: React.FC = () => {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-[#faf7f2] text-slate-700">
-        <div className="w-16 h-16 rounded-3xl bg-red-600 text-white flex items-center justify-center text-3xl shadow-xl shadow-red-200 animate-bounce">
-          🎁
+      <div className="min-h-screen flex flex-col items-center justify-center bg-[#fbf8f3] text-slate-700 p-4">
+        <div className="w-20 h-20 rounded-3xl bg-gradient-to-br from-red-600 to-rose-600 text-white flex items-center justify-center text-4xl shadow-2xl shadow-red-600/30 animate-bounce">
+          🎄
         </div>
-        <p className="mt-4 text-base font-semibold festive-font text-slate-800">
-          Caricamento delle liste di Natale...
+        <h2 className="mt-5 text-xl font-extrabold festive-font text-slate-900">
+          Prepariamo l'albero di Natale...
+        </h2>
+        <p className="mt-1 text-xs text-slate-500">
+          Sincronizzazione dei desideri della famiglia in corso
         </p>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen flex flex-col bg-[#faf7f2] text-slate-800 relative selection:bg-red-200">
+    <div className="min-h-screen flex flex-col text-slate-800 relative selection:bg-red-200">
       {/* Effetto fiocchi di neve */}
       <SnowEffect active={snowing} />
 
@@ -325,95 +355,202 @@ export const App: React.FC = () => {
           setGiftToEdit(null);
           setIsAddModalOpen(true);
         }}
-        onOpenMembersModal={() => setIsMembersModalOpen(true)}
+        onOpenGuide={() => setIsGuideOpen(true)}
         snowing={snowing}
         toggleSnow={() => setSnowing(!snowing)}
         totalGiftsCount={gifts.length}
       />
 
       {/* Contenuto Principale */}
-      <main className="max-w-6xl mx-auto px-3.5 sm:px-6 lg:px-8 py-4 sm:py-6 flex-1 w-full space-y-5 pb-24 sm:pb-10">
-        {/* Banner Natalizio Personalizzato */}
-        <section
-          className={`relative overflow-hidden rounded-2xl sm:rounded-3xl bg-gradient-to-br ${activeBannerTheme.gradientClass} text-white p-5 sm:p-8 shadow-lg shadow-black/10 transition-all duration-500`}
-        >
-          <div className="absolute top-0 right-0 -translate-y-4 translate-x-4 w-44 sm:w-60 h-44 sm:h-60 bg-white/10 rounded-full blur-2xl pointer-events-none" />
-          <div className="absolute bottom-0 left-0 translate-y-6 -translate-x-6 w-36 sm:w-48 h-36 sm:h-48 bg-amber-400/10 rounded-full blur-2xl pointer-events-none" />
+      <main className="max-w-6xl mx-auto px-3.5 sm:px-6 lg:px-8 py-4 sm:py-7 flex-1 w-full space-y-6 pb-28 sm:pb-12 relative z-10">
+        {/* 1. Guida Veloce Autoesplicativa in 3 Passi (Richiudibile) */}
+        {showInlineGuide && (
+          <section className="relative bg-white/90 backdrop-blur-md rounded-3xl p-4 sm:p-5 border-2 border-amber-200/80 shadow-md shadow-amber-900/5 animate-in fade-in duration-300">
+            <div className="flex items-center justify-between gap-2 mb-3">
+              <div className="flex items-center gap-2">
+                <span className="px-2.5 py-0.5 rounded-full bg-amber-100 text-amber-900 text-[11px] font-extrabold uppercase tracking-wider flex items-center gap-1">
+                  <Sparkles className="w-3 h-3 text-amber-600" />
+                  <span>Come funziona in 3 semplici passi</span>
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setIsGuideOpen(true)}
+                  className="text-xs font-bold text-red-600 hover:underline flex items-center gap-1"
+                >
+                  <span>Guida completa</span>
+                  <ArrowRight className="w-3 h-3" />
+                </button>
+                <button
+                  onClick={handleDismissInlineGuide}
+                  title="Nascondi questo riquadro"
+                  className="w-7 h-7 rounded-full hover:bg-slate-100 flex items-center justify-center text-slate-400 hover:text-slate-600 transition-colors"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
 
-          <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-5 sm:gap-6">
-            <div className="space-y-2.5 sm:space-y-3 max-w-xl">
-              <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-white/15 backdrop-blur-md text-[11px] sm:text-xs font-semibold text-white/95 border border-white/20">
-                <Sparkles className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-amber-300" />
-                {currentMember ? (
-                  <span>Lista Desideri di {currentMember.name} {currentMember.avatar}</span>
-                ) : loggedUser ? (
-                  <span>Ciao, {loggedUser.name}! {loggedUser.avatar} {isLeoAdmin && '👑'}</span>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+              <div className="flex items-start gap-3 p-3 rounded-2xl bg-red-50/60 border border-red-100">
+                <div className="w-9 h-9 rounded-xl bg-red-600 text-white font-extrabold text-sm flex items-center justify-center shrink-0 shadow-xs">
+                  1
+                </div>
+                <div>
+                  <h3 className="text-xs sm:text-sm font-extrabold text-slate-900">
+                    Scrivi cosa desideri ✍️
+                  </h3>
+                  <p className="text-[11px] sm:text-xs text-slate-600 mt-0.5 leading-relaxed">
+                    Vai sulla tua scheda <strong>"Tu"</strong> e premi <strong>"+ Aggiungi Desiderio"</strong>. Inserisci nome, foto o link!
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-start gap-3 p-3 rounded-2xl bg-emerald-50/60 border border-emerald-100">
+                <div className="w-9 h-9 rounded-xl bg-emerald-600 text-white font-extrabold text-sm flex items-center justify-center shrink-0 shadow-xs">
+                  2
+                </div>
+                <div>
+                  <h3 className="text-xs sm:text-sm font-extrabold text-slate-900">
+                    Prenota con "Ci penso io!" 🎁
+                  </h3>
+                  <p className="text-[11px] sm:text-xs text-slate-600 mt-0.5 leading-relaxed">
+                    Tocca il nome di un parente e, se vuoi comprargli un regalo, premi <strong>"Ci penso io!"</strong> per evitare doppioni.
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-start gap-3 p-3 rounded-2xl bg-amber-50/70 border border-amber-200/70">
+                <div className="w-9 h-9 rounded-xl bg-amber-500 text-white font-extrabold text-base flex items-center justify-center shrink-0 shadow-xs">
+                  🤫
+                </div>
+                <div>
+                  <h3 className="text-xs sm:text-sm font-extrabold text-slate-900">
+                    Effetto Sorpresa Protetto!
+                  </h3>
+                  <p className="text-[11px] sm:text-xs text-slate-600 mt-0.5 leading-relaxed">
+                    Chi riceve il regalo <strong>non vedrà mai</strong> se il suo desiderio è stato prenotato. Lo vedono solo gli altri parenti!
+                  </p>
+                </div>
+              </div>
+            </div>
+          </section>
+        )}
+
+        {/* 2. Selettore Membri / Famiglia (Subito accessibile e chiarissimo) */}
+        <MemberSelector
+          members={members}
+          selectedMemberId={selectedMemberId}
+          currentUserId={currentUserId}
+          onSelectMember={handleSelectMember}
+          giftCounts={giftCounts}
+        />
+
+        {/* 3. Hero Banner Contestuale (Spiega sempre cosa stai guardando) */}
+        <section
+          className={`relative overflow-hidden rounded-[2rem] bg-gradient-to-br ${activeBannerTheme.gradientClass} text-white p-5 sm:p-8 shadow-xl shadow-black/10 transition-all duration-500`}
+        >
+          <div className="absolute -top-10 -right-10 w-56 h-56 bg-white/10 rounded-full blur-2xl pointer-events-none" />
+          <div className="absolute -bottom-10 -left-10 w-48 h-48 bg-amber-400/15 rounded-full blur-2xl pointer-events-none" />
+
+          <div className="relative z-10 flex flex-col lg:flex-row lg:items-center justify-between gap-5">
+            <div className="space-y-3 max-w-2xl">
+              {/* Pillola stato */}
+              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-black/20 backdrop-blur-md text-xs font-extrabold uppercase tracking-wider text-white border border-white/20">
+                <Sparkles className="w-3.5 h-3.5 text-amber-300" />
+                {isViewingMyOwnList ? (
+                  <span>La tua lista personale dei desideri</span>
+                ) : currentMember ? (
+                  <span>Stai guardando la lista di {currentMember.name}</span>
                 ) : (
-                  <span>Natale in Famiglia</span>
+                  <span>Panoramica di tutta la famiglia</span>
                 )}
               </div>
 
-              <div className="flex items-center gap-3">
-                {currentMember && (
-                  <div className="w-12 h-12 sm:w-16 sm:h-16 rounded-xl sm:rounded-2xl bg-white/20 backdrop-blur-md border border-white/30 flex items-center justify-center text-2xl sm:text-4xl shadow-md shrink-0">
-                    {currentMember.avatar}
-                  </div>
-                )}
+              <div className="flex items-center gap-3.5 sm:gap-4">
+                <div className="w-14 h-14 sm:w-18 sm:h-18 rounded-2xl bg-white/20 backdrop-blur-md border-2 border-white/30 flex items-center justify-center text-3xl sm:text-4xl shadow-lg shrink-0">
+                  {currentMember ? currentMember.avatar : loggedUser?.avatar || '🎄'}
+                </div>
                 <div>
-                  <h2 className="text-xl sm:text-3xl font-extrabold festive-font tracking-wide leading-tight">
-                    {currentMember
-                      ? `I Desideri di ${currentMember.name}`
-                      : loggedUser
-                      ? `${loggedUser.name}, cosa vorresti ricevere?`
-                      : `Cosa vorresti trovare sotto l'albero?`}
+                  <h2 className="text-2xl sm:text-3xl font-extrabold festive-font tracking-wide leading-tight">
+                    {isViewingMyOwnList
+                      ? `I tuoi desideri, ${currentMember?.name}`
+                      : currentMember
+                      ? `Cosa desidera ${currentMember.name}`
+                      : `Tutti i desideri sotto l'albero`}
                   </h2>
-                  {currentMember?.bio && (
-                    <p className="text-xs sm:text-sm text-white/90 italic mt-0.5 font-serif">
+                  {currentMember?.bio ? (
+                    <p className="text-xs sm:text-sm text-white/90 italic mt-1 font-serif">
                       "{currentMember.bio}"
+                    </p>
+                  ) : (
+                    <p className="text-xs sm:text-sm text-white/85 mt-1">
+                      {isViewingMyOwnList
+                        ? 'Aggiungi qui ciò che ti piacerebbe ricevere a Natale!'
+                        : currentMember
+                        ? `Scegli un regalo per ${currentMember.name} e premi "Ci penso io!" per prenotarlo.`
+                        : 'Esplora le idee regalo di tutti i familiari o filtra quelli ancora liberi.'}
                     </p>
                   )}
                 </div>
               </div>
 
-              <p className="text-xs sm:text-sm text-white/85 leading-relaxed">
-                {currentMember
-                  ? `Ecco cosa vorrebbe ricevere ${currentMember.name} per Natale. Puoi aggiungere un link o segnare cosa comprerai per evitare doppioni!`
-                  : `Guarda i desideri della famiglia e aggiungi i regali che vorresti ricevere per Natale!`}
-              </p>
+              {/* Box Autoesplicativo Contestuale dentro il Banner */}
+              <div className="inline-flex items-center gap-2 px-3.5 py-2 rounded-2xl bg-black/20 backdrop-blur-md border border-white/15 text-xs text-white/95">
+                {isViewingMyOwnList ? (
+                  <>
+                    <EyeOff className="w-4 h-4 text-amber-300 shrink-0" />
+                    <span>
+                      <strong>Effetto sorpresa attivo:</strong> i parenti vedono i tuoi regali, ma tu non vedrai chi li prenota!
+                    </span>
+                  </>
+                ) : currentMember ? (
+                  <>
+                    <Gift className="w-4 h-4 text-amber-300 shrink-0" />
+                    <span>
+                      Se prenoti un regalo con <strong>"Ci penso io!"</strong>, gli altri parenti lo sapranno ma <strong>{currentMember.name} non vedrà nulla!</strong>
+                    </span>
+                  </>
+                ) : (
+                  <>
+                    <CheckCircle2 className="w-4 h-4 text-amber-300 shrink-0" />
+                    <span>
+                      Tocca un nome qui sopra per vedere i desideri di una singola persona.
+                    </span>
+                  </>
+                )}
+              </div>
             </div>
 
             {/* Azioni Banner */}
-            <div className="flex flex-wrap items-center gap-2 pt-1 sm:pt-0">
+            <div className="flex flex-wrap items-center gap-2.5 shrink-0">
               <button
                 onClick={() => {
                   setGiftToEdit(null);
                   setIsAddModalOpen(true);
                 }}
-                className="flex-1 sm:flex-initial px-4 py-2.5 sm:px-5 sm:py-3 rounded-xl sm:rounded-2xl bg-white hover:bg-slate-50 text-slate-900 font-bold text-xs sm:text-sm shadow-md transition-all active:scale-95 flex items-center justify-center gap-1.5"
+                className="flex-1 sm:flex-initial px-5 py-3 rounded-2xl bg-white hover:bg-red-50 text-slate-900 font-extrabold text-xs sm:text-sm shadow-lg transition-all active:scale-95 flex items-center justify-center gap-2"
               >
                 <Plus className="w-4 h-4 text-red-600 stroke-[3]" />
-                <span>Aggiungi Regalo</span>
+                <span>Aggiungi mio desiderio</span>
               </button>
 
-              {/* Personalizza il profilo dell'utente loggato */}
               {loggedUser && (
                 <button
                   onClick={() => openEditProfileFor(loggedUser)}
-                  className="flex-1 sm:flex-initial px-3.5 py-2.5 sm:px-4 sm:py-3 rounded-xl sm:rounded-2xl bg-white/15 hover:bg-white/25 border border-white/25 text-white text-xs font-semibold backdrop-blur-sm transition-all flex items-center justify-center gap-1.5"
-                  title="Modifica colore del banner, la tua emoji e il motto"
+                  className="px-4 py-3 rounded-2xl bg-white/15 hover:bg-white/25 border border-white/25 text-white text-xs sm:text-sm font-bold backdrop-blur-sm transition-all flex items-center justify-center gap-1.5"
                 >
-                  <Palette className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-amber-300" />
-                  <span>Personalizza</span>
+                  <Palette className="w-4 h-4 text-amber-300" />
+                  <span>Personalizza profilo</span>
                 </button>
               )}
 
-              {/* Pulsante Admin ESCLUSIVO per Leo nel banner */}
               {isLeoAdmin && (
                 <button
                   onClick={() => setIsAdminPanelOpen(true)}
-                  className="px-3.5 py-2.5 sm:px-4 sm:py-3 rounded-xl sm:rounded-2xl bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold shadow-md transition-all flex items-center gap-1.5 active:scale-95"
+                  className="px-4 py-3 rounded-2xl bg-amber-500 hover:bg-amber-600 text-white text-xs sm:text-sm font-bold shadow-md transition-all flex items-center gap-1.5 active:scale-95"
                 >
-                  <Crown className="w-3.5 h-3.5 text-yellow-100" />
+                  <Crown className="w-4 h-4 text-yellow-100" />
                   <span>Admin</span>
                 </button>
               )}
@@ -421,33 +558,52 @@ export const App: React.FC = () => {
           </div>
         </section>
 
-        {/* Selettore Membri / Famiglia */}
-        <MemberSelector
-          members={members}
-          selectedMemberId={selectedMemberId}
-          onSelectMember={handleSelectMember}
-          giftCounts={giftCounts}
-        />
-
-        {/* Barra di Ricerca e Info Lista */}
-        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 pt-2">
-          <div className="flex items-center gap-2">
-            <h3 className="text-xl font-bold festive-font text-slate-900 flex items-center gap-2">
-              {selectedMemberId === 'all' ? (
-                <>
-                  <span>✨</span>
-                  <span>Tutti i desideri della famiglia</span>
-                </>
-              ) : (
-                <>
-                  <span>{currentMember?.avatar}</span>
-                  <span>Lista desideri di {currentMember?.name}</span>
-                </>
-              )}
-            </h3>
-            <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-slate-200 text-slate-700">
-              {filteredGifts.length}
-            </span>
+        {/* 4. Barra Filtri e Ricerca */}
+        <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3 bg-white/80 backdrop-blur-md p-3.5 sm:p-4 rounded-2xl border border-slate-200/80 shadow-2xs">
+          <div className="flex flex-wrap items-center gap-2">
+            {/* Filtri rapidi disponibilità (visibili quando si guardano i regali degli altri) */}
+            {!isViewingMyOwnList ? (
+              <div className="flex items-center gap-1.5 bg-slate-100 p-1 rounded-xl">
+                <button
+                  onClick={() => setAvailabilityFilter('all')}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                    availabilityFilter === 'all'
+                      ? 'bg-white text-slate-900 shadow-2xs'
+                      : 'text-slate-600 hover:text-slate-900'
+                  }`}
+                >
+                  Tutti ({filteredGifts.length})
+                </button>
+                <button
+                  onClick={() => setAvailabilityFilter('available')}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1 ${
+                    availabilityFilter === 'available'
+                      ? 'bg-emerald-600 text-white shadow-2xs'
+                      : 'text-slate-600 hover:text-slate-900'
+                  }`}
+                >
+                  <span>🟢</span>
+                  <span>Ancora liberi</span>
+                </button>
+                <button
+                  onClick={() => setAvailabilityFilter('reserved')}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1 ${
+                    availabilityFilter === 'reserved'
+                      ? 'bg-amber-500 text-white shadow-2xs'
+                      : 'text-slate-600 hover:text-slate-900'
+                  }`}
+                >
+                  <span>🎀</span>
+                  <span>Già prenotati</span>
+                </button>
+              </div>
+            ) : (
+              <div className="flex items-center gap-2 px-2">
+                <span className="text-sm font-extrabold text-slate-800">
+                  I tuoi desideri inseriti ({filteredGifts.length})
+                </span>
+              </div>
+            )}
           </div>
 
           {/* Input di Ricerca */}
@@ -457,15 +613,23 @@ export const App: React.FC = () => {
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Cerca regalo per nome..."
-              className="w-full pl-9 pr-4 py-2 text-xs sm:text-sm rounded-xl border border-slate-200 bg-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-red-500/20 focus:border-red-500 transition-all"
+              placeholder="Cerca un regalo per nome..."
+              className="w-full pl-9 pr-8 py-2 text-xs sm:text-sm rounded-xl border border-slate-200 bg-slate-50/70 focus:bg-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-red-500/20 focus:border-red-500 transition-all"
             />
+            {searchQuery && (
+              <button
+                onClick={() => setSearchQuery('')}
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            )}
           </div>
         </div>
 
-        {/* Griglia Regali */}
+        {/* 5. Griglia dei Regali */}
         {filteredGifts.length > 0 ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5 sm:gap-6">
             {filteredGifts.map((gift) => {
               const member = members.find((m) => m.id === gift.memberId);
               return (
@@ -481,40 +645,56 @@ export const App: React.FC = () => {
                   onDelete={handleDeleteGift}
                   onToggleReserve={handleToggleReserve}
                   currentUserId={currentUserId || undefined}
+                  currentUserName={loggedUser?.name}
                 />
               );
             })}
           </div>
         ) : (
-          /* Stato Vuoto Accogliente */
-          <div className="text-center py-16 px-4 bg-white rounded-3xl border border-red-100 shadow-sm max-w-xl mx-auto my-6 space-y-4">
-            <div className="w-16 h-16 rounded-3xl bg-red-50 text-red-600 flex items-center justify-center mx-auto text-3xl">
+          /* Stato Vuoto Chiaro e Invitante */
+          <div className="text-center py-14 px-5 bg-white/90 backdrop-blur-md rounded-[2rem] border-2 border-dashed border-red-200 shadow-xs max-w-xl mx-auto my-4 space-y-4">
+            <div className="w-20 h-20 rounded-3xl bg-red-50 text-red-600 flex items-center justify-center mx-auto text-4xl shadow-inner">
               {currentMember?.avatar || loggedUser?.avatar || '🎅'}
             </div>
-            <div className="space-y-1">
-              <h3 className="text-lg font-bold text-slate-900 festive-font">
-                {searchQuery
-                  ? 'Nessun risultato trovato'
-                  : selectedMemberId === 'all'
-                  ? 'Nessun regalo ancora inserito nella famiglia'
-                  : `La lista di ${currentMember?.name} è ancora vuota`}
+            <div className="space-y-1.5">
+              <h3 className="text-xl font-extrabold text-slate-900 festive-font">
+                {searchQuery || availabilityFilter !== 'all'
+                  ? 'Nessun regalo trovato con questi filtri'
+                  : isViewingMyOwnList
+                  ? 'Non hai ancora scritto nessun desiderio!'
+                  : currentMember
+                  ? `${currentMember.name} non ha ancora aggiunto desideri`
+                  : 'La lista dei regali è ancora vuota'}
               </h3>
-              <p className="text-xs sm:text-sm text-slate-500 max-w-sm mx-auto">
-                {searchQuery
-                  ? 'Prova a cercare un nome diverso o cancella il testo nel campo di ricerca.'
-                  : 'Inizia subito aggiungendo il primo regalo desiderato per Natale!'}
+              <p className="text-xs sm:text-sm text-slate-500 max-w-md mx-auto leading-relaxed">
+                {searchQuery || availabilityFilter !== 'all'
+                  ? 'Prova a mostrare tutti i regali o a cancellare il testo nella barra di ricerca.'
+                  : isViewingMyOwnList
+                  ? 'Aiuta la famiglia a farti il regalo perfetto! Premi il pulsante qui sotto per aggiungere il tuo primo desiderio.'
+                  : `Non appena ${currentMember?.name || 'qualcuno'} aggiungerà un regalo, apparirà automaticamente qui!`}
               </p>
             </div>
-            {!searchQuery && (
+
+            {searchQuery || availabilityFilter !== 'all' ? (
+              <button
+                onClick={() => {
+                  setSearchQuery('');
+                  setAvailabilityFilter('all');
+                }}
+                className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-slate-900 text-white text-xs sm:text-sm font-bold hover:bg-slate-800 transition-all"
+              >
+                Mostra tutti i regali
+              </button>
+            ) : (
               <button
                 onClick={() => {
                   setGiftToEdit(null);
                   setIsAddModalOpen(true);
                 }}
-                className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-white bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-700 hover:to-rose-700 text-xs sm:text-sm font-semibold shadow-md shadow-red-200 transition-all transform active:scale-95"
+                className="inline-flex items-center gap-2 px-6 py-3 rounded-2xl text-white bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-700 hover:to-rose-700 text-xs sm:text-sm font-extrabold shadow-lg shadow-red-600/25 transition-all transform active:scale-95"
               >
-                <Plus className="w-4 h-4" />
-                <span>Aggiungi il primo regalo</span>
+                <Plus className="w-4 h-4 stroke-[3]" />
+                <span>Aggiungi un tuo desiderio</span>
               </button>
             )}
           </div>
@@ -522,33 +702,43 @@ export const App: React.FC = () => {
       </main>
 
       {/* Footer */}
-      <footer className="mt-auto border-t border-slate-200/80 bg-white/60 backdrop-blur-sm py-6 text-center text-xs text-slate-500">
+      <footer className="mt-auto border-t border-red-100 bg-white/80 backdrop-blur-md py-6 text-center text-xs text-slate-500 relative z-10">
         <div className="max-w-6xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-3">
-          <p className="flex items-center gap-1.5 justify-center">
-            <span>Realizzato con</span>
-            <span className="text-red-500">❤️</span>
-            <span>per il Natale in famiglia</span>
+          <p className="flex items-center gap-1.5 justify-center font-medium">
+            <span>🎄 Lista Regali di Natale in Famiglia</span>
+            <span>•</span>
+            <span className="text-emerald-700 font-bold">Sincronizzata in Cloud</span>
           </p>
-          <div className="flex items-center gap-4 text-xs text-slate-500">
+          <div className="flex flex-wrap items-center justify-center gap-4 text-xs">
+            <button
+              onClick={() => setIsGuideOpen(true)}
+              className="hover:text-red-600 font-bold text-slate-700 flex items-center gap-1 transition-colors"
+            >
+              <HelpCircle className="w-3.5 h-3.5 text-amber-600" />
+              <span>Guida: Come funziona</span>
+            </button>
             {loggedUser && (
               <>
+                <span>•</span>
                 <button
                   onClick={() => openEditProfileFor(loggedUser)}
-                  className="hover:text-red-600 transition-colors font-semibold text-slate-700"
+                  className="hover:text-red-600 transition-colors font-bold text-slate-700"
                 >
                   Personalizza ({loggedUser.name})
                 </button>
-                <span>•</span>
               </>
             )}
             {isLeoAdmin && (
-              <button
-                onClick={() => setIsAdminPanelOpen(true)}
-                className="hover:text-amber-600 text-amber-700 font-bold transition-colors flex items-center gap-1"
-              >
-                <Crown className="w-3.5 h-3.5 text-amber-500" />
-                <span>Pannello Admin</span>
-              </button>
+              <>
+                <span>•</span>
+                <button
+                  onClick={() => setIsAdminPanelOpen(true)}
+                  className="hover:text-amber-600 text-amber-700 font-extrabold transition-colors flex items-center gap-1"
+                >
+                  <Crown className="w-3.5 h-3.5 text-amber-500" />
+                  <span>Pannello Admin</span>
+                </button>
+              </>
             )}
           </div>
         </div>
@@ -559,6 +749,13 @@ export const App: React.FC = () => {
         isOpen={isWhoAreYouOpen}
         members={members}
         onSelectUser={handleSelectUserIdentity}
+      />
+
+      {/* Modale Guida "Come funziona" */}
+      <HowItWorksModal
+        isOpen={isGuideOpen}
+        onClose={() => setIsGuideOpen(false)}
+        userName={loggedUser?.name}
       />
 
       {/* Modale Personalizzazione Profilo */}

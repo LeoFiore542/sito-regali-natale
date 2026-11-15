@@ -6,12 +6,19 @@
   html {
     -webkit-tap-highlight-color: transparent;
     touch-action: manipulation;
+    scroll-behavior: smooth;
   }
 
   body {
     font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
     padding-top: env(safe-area-inset-top, 0);
     padding-bottom: env(safe-area-inset-bottom, 0);
+    background-color: #fbf8f3;
+    background-image: 
+      radial-gradient(at 0% 0%, rgba(254, 202, 202, 0.25) 0px, transparent 50%),
+      radial-gradient(at 100% 0%, rgba(253, 230, 138, 0.22) 0px, transparent 50%),
+      radial-gradient(at 50% 100%, rgba(167, 243, 208, 0.15) 0px, transparent 50%);
+    background-attachment: fixed;
   }
 
   h1, h2, h3, .festive-font {
@@ -32,7 +39,7 @@
     input[type="search"],
     textarea,
     select {
-      font-size: 0.875rem; /* 14px */
+      font-size: 0.875rem;
     }
   }
 }
@@ -51,7 +58,7 @@
 @keyframes snowfall {
   0% {
     transform: translateY(-10px) rotate(0deg);
-    opacity: 0.8;
+    opacity: 0.85;
   }
   100% {
     transform: translateY(100vh) rotate(360deg);
@@ -69,4 +76,20 @@
   animation-name: snowfall;
   animation-timing-function: linear;
   animation-iteration-count: infinite;
+}
+
+/* Lucine di Natale animate in alto */
+@keyframes twinkle {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.45; transform: scale(0.92); }
+}
+
+.light-bulb {
+  animation: twinkle 2.4s ease-in-out infinite;
+}
+.light-bulb:nth-child(2n) {
+  animation-delay: 0.8s;
+}
+.light-bulb:nth-child(3n) {
+  animation-delay: 1.5s;
 }

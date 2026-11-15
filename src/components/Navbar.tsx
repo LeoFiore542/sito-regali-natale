@@ -1,5 +1,5 @@
-import React from 'react';
-import { Gift, Plus, Sparkles, Users, Palette, Crown } from 'lucide-react';
+import React, { useMemo } from 'react';
+import { Gift, Plus, Sparkles, Palette, Crown, HelpCircle } from 'lucide-react';
 import { FamilyMember } from '../types';
 
 interface NavbarProps {
@@ -9,7 +9,7 @@ interface NavbarProps {
   onOpenAdmin?: () => void;
   onOpenEditProfile: () => void;
   onOpenAddModal: () => void;
-  onOpenMembersModal: () => void;
+  onOpenGuide: () => void;
   snowing: boolean;
   toggleSnow: () => void;
   totalGiftsCount: number;
@@ -22,110 +22,126 @@ export const Navbar: React.FC<NavbarProps> = ({
   onOpenAdmin,
   onOpenEditProfile,
   onOpenAddModal,
-  onOpenMembersModal,
+  onOpenGuide,
   snowing,
   toggleSnow,
-  totalGiftsCount,
 }) => {
+  // Calcolo giorni mancanti a Natale (25 Dicembre)
+  const daysToChristmas = useMemo(() => {
+    const now = new Date();
+    const year = now.getMonth() === 11 && now.getDate() > 25 ? now.getFullYear() + 1 : now.getFullYear();
+    const xmas = new Date(year, 11, 25);
+    const diff = Math.ceil((xmas.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+    return diff;
+  }, []);
+
   return (
     <>
-      <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-red-100/80 shadow-xs">
+      <header className="sticky top-0 z-40 bg-white/90 backdrop-blur-xl border-b border-red-100/80 shadow-xs">
+        {/* Filo decorativo natalizio superiore */}
+        <div className="h-1 w-full bg-gradient-to-r from-red-600 via-amber-400 via-emerald-500 to-rose-600" />
+
         <div className="max-w-6xl mx-auto px-3 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-14 sm:h-20">
+          <div className="flex items-center justify-between h-16 sm:h-20 gap-2">
             {/* Logo e Titolo */}
-            <div className="flex items-center space-x-2.5 min-w-0">
-              <div className="w-8 h-8 sm:w-11 sm:h-11 rounded-xl sm:rounded-2xl bg-gradient-to-tr from-red-600 to-rose-500 text-white flex items-center justify-center shadow-md shadow-red-200 shrink-0">
-                <Gift className="w-4 h-4 sm:w-5 sm:h-5" />
+            <div className="flex items-center gap-2.5 sm:gap-3.5 min-w-0">
+              <div className="relative w-10 h-10 sm:w-12 sm:h-12 rounded-2xl bg-gradient-to-br from-red-600 via-rose-600 to-amber-600 text-white flex items-center justify-center shadow-lg shadow-red-600/25 shrink-0 ring-2 ring-red-100">
+                <Gift className="w-5 h-5 sm:w-6 sm:h-6" />
+                <span className="absolute -top-1 -right-1 text-xs">✨</span>
               </div>
               <div className="min-w-0">
-                <div className="flex items-center gap-1.5">
-                  <h1 className="text-base sm:text-xl font-bold tracking-tight text-slate-900 festive-font truncate flex items-center gap-1">
-                    <span>Lista di Natale</span>
-                    <span className="text-red-600 text-sm sm:text-base">🎄</span>
+                <div className="flex items-center gap-2">
+                  <h1 className="text-base sm:text-xl font-extrabold tracking-tight text-slate-900 festive-font truncate">
+                    Natale in Famiglia
                   </h1>
-                  <span className="inline-flex items-center px-1.5 sm:px-2 py-0.5 rounded-full text-[10px] sm:text-xs font-semibold bg-red-50 text-red-700 border border-red-200 shrink-0">
-                    {totalGiftsCount}
+                  <span className="hidden md:inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-200 shrink-0">
+                    <span>🎄</span>
+                    <span>
+                      {daysToChristmas === 0
+                        ? 'È Natale!'
+                        : `-${daysToChristmas} giorni a Natale`}
+                    </span>
                   </span>
                 </div>
-                <p className="text-[11px] text-slate-500 hidden md:block">
-                  I desideri di tutta la famiglia
+                <p className="text-[11px] sm:text-xs text-slate-500 truncate">
+                  Lista dei desideri condivisa • <span className="text-emerald-700 font-semibold">Live</span>
                 </p>
               </div>
             </div>
 
             {/* Azioni Navbar */}
-            <div className="flex items-center space-x-1.5 sm:space-x-2.5 shrink-0">
-              {/* Badge Admin Leo (se Admin) */}
-              {isAdmin && onOpenAdmin && (
-                <button
-                  onClick={onOpenAdmin}
-                  title="Pannello Amministrazione (Solo Leo)"
-                  className="flex items-center gap-1 px-2 sm:px-2.5 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold shadow-xs transition-transform active:scale-95"
-                >
-                  <Crown className="w-3.5 h-3.5" />
-                  <span className="hidden sm:inline">Admin</span>
-                </button>
-              )}
+            <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+              {/* Pulsante Guida "Come funziona" ben visibile */}
+              <button
+                onClick={onOpenGuide}
+                title="Scopri come funziona l'app"
+                className="flex items-center gap-1.5 px-2.5 sm:px-3.5 py-2 rounded-xl bg-amber-50 hover:bg-amber-100/80 text-amber-900 border border-amber-200/90 text-xs font-bold transition-all active:scale-95"
+              >
+                <HelpCircle className="w-4 h-4 text-amber-600 shrink-0" />
+                <span>Come funziona</span>
+              </button>
 
-              {/* Profilo & Personalizza (Tap diretto per personalizzare) */}
+              {/* Profilo Utente & Personalizza */}
               {currentUser && (
                 <button
                   onClick={onOpenEditProfile}
-                  title="Tocca per personalizzare emoji, banner e motto"
-                  className="flex items-center gap-1 sm:gap-1.5 px-2 sm:px-2.5 py-1.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-950 text-xs font-semibold hover:bg-rose-100 transition-colors"
+                  title="Personalizza la tua emoji, colore e motto"
+                  className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 sm:py-2 rounded-xl bg-slate-100/90 hover:bg-slate-200/70 border border-slate-200/80 text-slate-800 text-xs font-bold transition-all active:scale-95"
                 >
-                  <span className="text-sm sm:text-base">{currentUser.avatar}</span>
-                  <span className="max-w-[70px] sm:max-w-none truncate">{currentUser.name}</span>
-                  <Palette className="w-3 h-3 text-rose-500 hidden sm:inline" />
+                  <span className="text-base leading-none">{currentUser.avatar}</span>
+                  <span className="max-w-[68px] sm:max-w-[110px] truncate">{currentUser.name}</span>
+                  <Palette className="w-3.5 h-3.5 text-rose-500 hidden sm:inline shrink-0" />
+                </button>
+              )}
+
+              {/* Pulsante Admin Leo (se Leo) */}
+              {isAdmin && onOpenAdmin && (
+                <button
+                  onClick={onOpenAdmin}
+                  title="Pannello Admin di Leo"
+                  className="flex items-center gap-1 px-2.5 py-2 rounded-xl bg-gradient-to-r from-amber-500 to-yellow-600 hover:from-amber-600 hover:to-yellow-700 text-white text-xs font-bold shadow-sm transition-transform active:scale-95"
+                >
+                  <Crown className="w-3.5 h-3.5" />
+                  <span className="hidden lg:inline">Admin</span>
                 </button>
               )}
 
               {/* Toggle Fiocchi di Neve */}
               <button
                 onClick={toggleSnow}
-                title={snowing ? 'Disattiva neve' : 'Attiva neve'}
-                className={`p-1.5 sm:p-2 rounded-xl border transition-colors ${
+                title={snowing ? 'Disattiva effetto neve' : 'Attiva effetto neve'}
+                className={`p-2 rounded-xl border transition-all ${
                   snowing
-                    ? 'bg-blue-50 border-blue-200 text-blue-600'
-                    : 'bg-slate-50 border-slate-200 text-slate-400'
+                    ? 'bg-sky-50 border-sky-200 text-sky-600 shadow-2xs'
+                    : 'bg-slate-50 border-slate-200 text-slate-400 hover:text-slate-600'
                 }`}
               >
-                <Sparkles className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                <Sparkles className="w-4 h-4" />
               </button>
 
-              {/* Membri Famiglia (visibile sempre con icona) */}
-              <button
-                onClick={onOpenMembersModal}
-                title="Vedi membri della famiglia"
-                className="p-1.5 sm:px-2.5 sm:py-2 rounded-xl border border-slate-200 text-slate-700 hover:bg-slate-50 flex items-center space-x-1 text-xs font-medium transition-colors"
-              >
-                <Users className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-emerald-700" />
-                <span className="hidden sm:inline">Famiglia</span>
-              </button>
-
-              {/* Bottone Aggiungi Regalo (Desktop) */}
+              {/* Bottone Aggiungi Desiderio (Desktop) */}
               <button
                 onClick={onOpenAddModal}
                 disabled={!currentMember}
-                className="hidden sm:flex items-center space-x-1.5 px-3.5 py-2 rounded-xl text-white font-medium shadow-md shadow-red-200 bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-700 hover:to-rose-700 transition-all text-xs sm:text-sm active:scale-95"
+                className="hidden sm:flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-white font-bold shadow-md shadow-red-600/20 bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-700 hover:to-rose-700 transition-all text-xs sm:text-sm active:scale-95"
               >
-                <Plus className="w-4 h-4" />
-                <span>Aggiungi Regalo</span>
+                <Plus className="w-4 h-4 stroke-[2.5]" />
+                <span>Aggiungi Desiderio</span>
               </button>
             </div>
           </div>
         </div>
       </header>
 
-      {/* Floating Action Button fisso in basso a destra su Mobile per aggiungere regali con il pollice */}
-      <div className="fixed sm:hidden bottom-5 right-4 z-40">
+      {/* Barra Flottante Mobile (Thumb-Friendly) */}
+      <div className="fixed sm:hidden bottom-4 inset-x-4 z-40 pointer-events-none flex items-center justify-end">
         <button
           onClick={onOpenAddModal}
           disabled={!currentMember}
-          className="flex items-center gap-2 px-4 py-3 rounded-full text-white font-bold text-sm bg-gradient-to-r from-red-600 to-rose-600 shadow-xl shadow-red-900/30 active:scale-90 transition-transform border-2 border-white"
+          className="pointer-events-auto flex items-center gap-2 px-5 py-3.5 rounded-2xl text-white font-extrabold text-sm bg-gradient-to-r from-red-600 via-rose-600 to-red-700 shadow-xl shadow-red-950/30 active:scale-95 transition-transform ring-2 ring-white"
         >
           <Plus className="w-5 h-5 stroke-[3]" />
-          <span>Nuovo Regalo</span>
+          <span>Aggiungi mio desiderio</span>
         </button>
       </div>
     </>
