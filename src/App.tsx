@@ -148,6 +148,12 @@ export const App: React.FC = () => {
 
   // Toggle "Prenotato / Ci penso io"
   const handleToggleReserve = async (gift: GiftItem) => {
+    // Non puoi prenotare i tuoi stessi regali!
+    if (gift.memberId === currentUserId) {
+      alert("Non puoi prenotare i tuoi stessi regali! Lascia che ci pensi la famiglia 🎅🎁");
+      return;
+    }
+
     const currentUserObj = members.find((m) => m.id === currentUserId);
     if (!currentUserObj) {
       setIsWhoAreYouOpen(true);

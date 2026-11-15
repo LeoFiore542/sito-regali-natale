@@ -1,6 +1,6 @@
 import React from 'react';
 import { GiftItem, FamilyMember } from '../types';
-import { ExternalLink, Edit2, Trash2, Gift, Check, Clock } from 'lucide-react';
+import { ExternalLink, Edit2, Trash2, Gift, Check, Clock, Sparkles } from 'lucide-react';
 
 interface GiftCardProps {
   gift: GiftItem;
@@ -19,8 +19,11 @@ export const GiftCard: React.FC<GiftCardProps> = ({
   onEdit,
   onDelete,
   onToggleReserve,
+  currentUserId,
 }) => {
   const isReserved = !!gift.reservedBy;
+  // È un regalo della mia lista?
+  const isMyGift = !!currentUserId && gift.memberId === currentUserId;
 
   return (
     <div
@@ -54,11 +57,11 @@ export const GiftCard: React.FC<GiftCardProps> = ({
           </div>
         )}
 
-        {/* Badge Prenotato (Ci pensa qualcuno) */}
+        {/* Badge Prenotato (Ci pensa qualcuno) - Per i propri regali lascia la sorpresa */}
         {isReserved && (
           <div className="absolute top-3 right-3 bg-emerald-600/95 backdrop-blur-md text-white px-3 py-1 rounded-full shadow-lg text-xs font-semibold flex items-center gap-1 border border-emerald-400">
             <Check className="w-3.5 h-3.5" />
-            <span>Preso da {gift.reservedBy}</span>
+            <span>{isMyGift ? 'Qualcuno ci sta pensando 🤫' : `Preso da ${gift.reservedBy}`}</span>
           </div>
         )}
       </div>
@@ -98,28 +101,35 @@ export const GiftCard: React.FC<GiftCardProps> = ({
 
           {/* Pulsanti di gestione / prenotazione */}
           <div className="flex items-center justify-between gap-1 text-slate-500">
-            {/* Toggle "Ci penso io" per i parenti */}
-            <button
-              onClick={() => onToggleReserve(gift)}
-              className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-colors ${
-                isReserved
-                  ? 'bg-emerald-100 text-emerald-800 hover:bg-emerald-200'
-                  : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-              }`}
-              title={isReserved ? 'Segna come non ancora acquistato' : 'Segna che ci pensi tu ad acquistarlo'}
-            >
-              {isReserved ? (
-                <>
-                  <Check className="w-3.5 h-3.5 text-emerald-600" />
-                  <span>Acquistato</span>
-                </>
-              ) : (
-                <>
-                  <Clock className="w-3.5 h-3.5 text-slate-500" />
-                  <span>Ci penso io</span>
-                </>
-              )}
-            </button>
+            {/* Toggle "Ci penso io" SOLO per i regali degli altri parenti, MAI per i propri! */}
+            {!isMyGift ? (
+              <button
+                onClick={() => onToggleReserve(gift)}
+                className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                  isReserved
+                    ? 'bg-emerald-100 text-emerald-800 hover:bg-emerald-200'
+                    : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                }`}
+                title={isReserved ? 'Segna come non ancora acquistato' : 'Segna che ci pensi tu ad acquistarlo'}
+              >
+                {isReserved ? (
+                  <>
+                    <Check className="w-3.5 h-3.5 text-emerald-600" />
+                    <span>Acquistato</span>
+                  </>
+                ) : (
+                  <>
+                    <Clock className="w-3.5 h-3.5 text-slate-500" />
+                    <span>Ci penso io</span>
+                  </>
+                )}
+              </button>
+            ) : (
+              <span className="inline-flex items-center gap-1 text-xs text-rose-600/80 font-medium px-2 py-1 bg-rose-50/60 rounded-lg">
+                <Sparkles className="w-3.5 h-3.5 text-rose-500" />
+                <span>La tua lista</span>
+              </span>
+            )}
 
             {/* Modifica ed Elimina */}
             <div className="flex items-center gap-1">
