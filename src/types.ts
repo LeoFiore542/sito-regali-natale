@@ -6,7 +6,7 @@ export interface FamilyMember {
   role?: string; // es. Mamma, Papà, Bambino...
   bannerTheme?: string; // Tema colore del banner
   bannerPattern?: 'stars' | 'snow' | 'dots' | 'none'; // Pattern di sfondo del banner
-  bio?: string; // Motto natalizio o nota (es: "Babbo Natale stupiscimi!")
+  bio?: string; // Motto natalizio o nota
   createdAt: number;
 }
 
@@ -19,9 +19,10 @@ export interface GiftItem {
   description?: string;
   link?: string;
   imageUrl?: string; // Può essere URL web o data:image/... in base64
-  price?: string;
+  price?: string; // Prezzo stimato/ricavato dal link di acquisto
+  storeName?: string; // Negozio rilevato dal link (es. Amazon, Zalando)
   priority?: PriorityLevel;
-  reservedBy?: string | null; // Nome di chi lo compra (per evitare regali doppi)
+  reservedBy?: string | null; // Nome di chi lo compra
   createdAt: number;
 }
 
