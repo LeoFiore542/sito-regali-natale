@@ -7,6 +7,7 @@ import {
   saveGift,
   deleteGift as removeGiftStorage,
   setActiveMemberId,
+  OFFICIAL_FAMILY_MEMBERS,
 } from './lib/storage';
 import { getBannerTheme } from './lib/bannerThemes';
 import { Navbar } from './components/Navbar';
@@ -17,8 +18,9 @@ import { BackupModal } from './components/BackupModal';
 import { ManageMembersModal } from './components/ManageMembersModal';
 import { WhoAreYouModal } from './components/WhoAreYouModal';
 import { EditProfileModal } from './components/EditProfileModal';
+import { AdminPanelModal } from './components/AdminPanelModal';
 import { SnowEffect } from './components/SnowEffect';
-import { Plus, Search, Sparkles, Palette } from 'lucide-react';
+import { Plus, Search, Sparkles, Palette, Crown } from 'lucide-react';
 
 const CURRENT_USER_KEY = 'natale_logged_user_id';
 
@@ -29,6 +31,7 @@ export const App: React.FC = () => {
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [isWhoAreYouOpen, setIsWhoAreYouOpen] = useState(false);
   const [isEditProfileOpen, setIsEditProfileOpen] = useState(false);
+  const [isAdminPanelOpen, setIsAdminPanelOpen] = useState(false);
   const [profileToEdit, setProfileToEdit] = useState<FamilyMember | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [snowing, setSnowing] = useState(true);
@@ -40,20 +43,30 @@ export const App: React.FC = () => {
   const [isBackupModalOpen, setIsBackupModalOpen] = useState(false);
   const [isMembersModalOpen, setIsMembersModalOpen] = useState(false);
 
-  // Caricamento iniziale
+  // Caricamento iniziale & Controllo Reset Link (?reset=1)
   useEffect(() => {
+    // Controllo sblocco da link magico Admin (es: ?reset=1)
+    const urlParams = new URLSearchParams(window.location.search);
+    const hasResetParam = urlParams.get('reset') === '1' || urlParams.get('reset') === 'true';
+
+    if (hasResetParam) {
+      localStorage.removeItem(CURRENT_USER_KEY);
+      // Pulisce l'URL senza ricaricare la pagina
+      window.history.replaceState({}, document.title, window.location.pathname);
+    }
+
     loadInitialData().then(({ members, gifts }) => {
       setMembers(members);
       setGifts(gifts);
 
-      const savedUser = localStorage.getItem(CURRENT_USER_KEY);
+      const savedUser = hasResetParam ? null : localStorage.getItem(CURRENT_USER_KEY);
+
       if (savedUser && members.some((m) => m.id === savedUser)) {
-        // Utente già identificato: permanente!
         setCurrentUserId(savedUser);
         setSelectedMemberId(savedUser);
         setIsWhoAreYouOpen(false);
       } else {
-        // Primo accesso: l'utente DEVE scegliere chi è in modo definitivo
+        // Nessun utente memorizzato o reset richiesto: mostra "Chi sei?"
         setIsWhoAreYouOpen(true);
         setSelectedMemberId('all');
       }
@@ -147,7 +160,6 @@ export const App: React.FC = () => {
   };
 
   // Toggle "Prenotato / Ci penso io"
-  // Assegna direttamente il nome dell'utente loggato permanente
   const handleToggleReserve = async (gift: GiftItem) => {
     const currentUserObj = members.find((m) => m.id === currentUserId);
     if (!currentUserObj) {
@@ -170,6 +182,47 @@ export const App: React.FC = () => {
     };
     await saveGift(updated);
     setGifts((prev) => prev.map((g) => (g.id === updated.id ? updated : g)));
+  };
+
+  // Funzioni ESCLUSIVE Admin Leo
+  const handleResetThisDevice = () => {
+    localStorage.removeItem(CURRENT_USER_KEY);
+    setCurrentUserId(null);
+    setSelectedMemberId('all');
+    setIsAdminPanelOpen(false);
+    setIsWhoAreYouOpen(true);
+  };
+
+  const handleClearAllGifts = async () => {
+    for (const g of gifts) {
+      await removeGiftStorage(g.id);
+    }
+    setGifts([]);
+    setIsAdminPanelOpen(false);
+  };
+
+  const handleUnlockGiftReserve = async (giftId: string) => {
+    const target = gifts.find((g) => g.id === giftId);
+    if (!target) return;
+    const updated: GiftItem = {
+      ...target,
+      reservedBy: null,
+    };
+    await saveGift(updated);
+    setGifts((prev) => prev.map((g) => (g.id === giftId ? updated : g)));
+  };
+
+  const handleResetDatabaseFactory = async () => {
+    for (const g of gifts) {
+      await removeGiftStorage(g.id);
+    }
+    setGifts([]);
+    for (const m of OFFICIAL_FAMILY_MEMBERS) {
+      await saveMember(m);
+    }
+    setMembers(OFFICIAL_FAMILY_MEMBERS);
+    setIsAdminPanelOpen(false);
+    alert('Database ripristinato ai 10 membri ufficiali di famiglia.');
   };
 
   // Filtra regali
@@ -198,6 +251,12 @@ export const App: React.FC = () => {
   const loggedUser = useMemo(() => {
     return members.find((m) => m.id === currentUserId) || null;
   }, [members, currentUserId]);
+
+  // È Leo l'admin del sito?
+  const isLeoAdmin = useMemo(() => {
+    if (!loggedUser) return false;
+    return loggedUser.id === 'leo' || loggedUser.name.trim().toLowerCase() === 'leo';
+  }, [loggedUser]);
 
   // Tema del banner attivo
   const activeBannerTheme = useMemo(() => {
@@ -238,6 +297,8 @@ export const App: React.FC = () => {
       <Navbar
         currentMember={currentMember || loggedUser || members[0] || null}
         currentUser={loggedUser}
+        isAdmin={isLeoAdmin}
+        onOpenAdmin={() => setIsAdminPanelOpen(true)}
         onOpenEditProfile={() => {
           if (loggedUser) openEditProfileFor(loggedUser);
         }}
@@ -268,7 +329,7 @@ export const App: React.FC = () => {
                 {currentMember ? (
                   <span>Lista Desideri di {currentMember.name} {currentMember.avatar}</span>
                 ) : loggedUser ? (
-                  <span>Ciao, {loggedUser.name}! {loggedUser.avatar}</span>
+                  <span>Ciao, {loggedUser.name}! {loggedUser.avatar} {isLeoAdmin && '👑'}</span>
                 ) : (
                   <span>Natale in Famiglia</span>
                 )}
@@ -325,6 +386,17 @@ export const App: React.FC = () => {
                 >
                   <Palette className="w-4 h-4 text-amber-300" />
                   <span>Personalizza Profilo</span>
+                </button>
+              )}
+
+              {/* Pulsante Admin ESCLUSIVO per Leo nel banner */}
+              {isLeoAdmin && (
+                <button
+                  onClick={() => setIsAdminPanelOpen(true)}
+                  className="px-4 py-3 rounded-2xl bg-amber-500/90 hover:bg-amber-500 text-white text-xs font-bold shadow-md shadow-black/20 transition-all flex items-center gap-1.5 transform hover:scale-105 active:scale-95"
+                >
+                  <Crown className="w-4 h-4 text-yellow-200" />
+                  <span>Admin Leo</span>
                 </button>
               )}
             </div>
@@ -447,7 +519,19 @@ export const App: React.FC = () => {
                   onClick={() => openEditProfileFor(loggedUser)}
                   className="hover:text-red-600 transition-colors font-semibold text-slate-700"
                 >
-                  Personalizza Profilo ({loggedUser.name})
+                  Personalizza ({loggedUser.name})
+                </button>
+                <span>•</span>
+              </>
+            )}
+            {isLeoAdmin && (
+              <>
+                <button
+                  onClick={() => setIsAdminPanelOpen(true)}
+                  className="hover:text-amber-600 text-amber-700 font-bold transition-colors flex items-center gap-1"
+                >
+                  <Crown className="w-3.5 h-3.5 text-amber-500" />
+                  <span>Pannello Admin</span>
                 </button>
                 <span>•</span>
               </>
@@ -462,7 +546,7 @@ export const App: React.FC = () => {
         </div>
       </footer>
 
-      {/* Schermata Iniziale Obbligatoria e Definitiva "Chi sei?" */}
+      {/* Schermata Iniziale Obbligatoria "Chi sei?" */}
       <WhoAreYouModal
         isOpen={isWhoAreYouOpen}
         members={members}
@@ -479,6 +563,20 @@ export const App: React.FC = () => {
         }}
         onSave={handleSaveProfile}
       />
+
+      {/* Pannello Admin Esclusivo per Leo */}
+      {isLeoAdmin && (
+        <AdminPanelModal
+          isOpen={isAdminPanelOpen}
+          onClose={() => setIsAdminPanelOpen(false)}
+          members={members}
+          gifts={gifts}
+          onResetThisDevice={handleResetThisDevice}
+          onClearAllGifts={handleClearAllGifts}
+          onUnlockGiftReserve={handleUnlockGiftReserve}
+          onResetDatabaseFactory={handleResetDatabaseFactory}
+        />
+      )}
 
       {/* Modale Aggiungi / Modifica Regalo */}
       <AddGiftModal

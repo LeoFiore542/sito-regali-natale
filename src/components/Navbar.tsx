@@ -1,10 +1,12 @@
 import React from 'react';
-import { Gift, Plus, Sparkles, Share2, Users, Palette } from 'lucide-react';
+import { Gift, Plus, Sparkles, Share2, Users, Palette, Crown } from 'lucide-react';
 import { FamilyMember } from '../types';
 
 interface NavbarProps {
   currentMember: FamilyMember | null;
   currentUser: FamilyMember | null;
+  isAdmin?: boolean;
+  onOpenAdmin?: () => void;
   onOpenEditProfile: () => void;
   onOpenAddModal: () => void;
   onOpenBackupModal: () => void;
@@ -17,6 +19,8 @@ interface NavbarProps {
 export const Navbar: React.FC<NavbarProps> = ({
   currentMember,
   currentUser,
+  isAdmin = false,
+  onOpenAdmin,
   onOpenEditProfile,
   onOpenAddModal,
   onOpenBackupModal,
@@ -52,6 +56,18 @@ export const Navbar: React.FC<NavbarProps> = ({
 
           {/* Azioni Principali */}
           <div className="flex items-center space-x-2 sm:space-x-2.5">
+            {/* Pulsante Admin ESCLUSIVO per Leo */}
+            {isAdmin && onOpenAdmin && (
+              <button
+                onClick={onOpenAdmin}
+                title="Pannello Amministrazione (Solo Leo)"
+                className="flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold shadow-md shadow-amber-200 transition-all transform active:scale-95"
+              >
+                <Crown className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">Admin Leo</span>
+              </button>
+            )}
+
             {/* Profilo Utente Fisso & Personalizza */}
             {currentUser && (
               <div className="flex items-center bg-rose-50 border border-rose-200/80 rounded-2xl p-1 shadow-sm">
