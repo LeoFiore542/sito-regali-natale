@@ -26,19 +26,15 @@ import { SnowEffect } from './components/SnowEffect';
 import {
   Plus,
   Search,
-  Sparkles,
   Palette,
   Crown,
   HelpCircle,
   EyeOff,
-  CheckCircle2,
   Gift,
   X,
-  ArrowRight,
 } from 'lucide-react';
 
 const CURRENT_USER_KEY = 'natale_logged_user_id';
-const HIDE_INLINE_GUIDE_KEY = 'natale_hide_inline_guide';
 
 type AvailabilityFilter = 'all' | 'available' | 'reserved';
 
@@ -51,9 +47,6 @@ export const App: React.FC = () => {
   const [isEditProfileOpen, setIsEditProfileOpen] = useState(false);
   const [isAdminPanelOpen, setIsAdminPanelOpen] = useState(false);
   const [isGuideOpen, setIsGuideOpen] = useState(false);
-  const [showInlineGuide, setShowInlineGuide] = useState(() => {
-    return localStorage.getItem(HIDE_INLINE_GUIDE_KEY) !== 'true';
-  });
   const [profileToEdit, setProfileToEdit] = useState<FamilyMember | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [snowing, setSnowing] = useState(true);
@@ -187,11 +180,6 @@ export const App: React.FC = () => {
     setSelectedMemberId(id);
     setAvailabilityFilter('all');
     setActiveMemberId(id === 'all' ? null : id);
-  };
-
-  const handleDismissInlineGuide = () => {
-    setShowInlineGuide(false);
-    localStorage.setItem(HIDE_INLINE_GUIDE_KEY, 'true');
   };
 
   // Conteggio regali per membro (con deduplicazione sicura)
@@ -352,7 +340,6 @@ export const App: React.FC = () => {
         return false;
       }
 
-      // Filtro disponibilità (solo sui regali degli altri per non spoilerare mai i propri!)
       if (!isViewingMyOwnList && availabilityFilter !== 'all') {
         const isMine = gift.memberId === currentUserId;
         const effectivelyReserved = !isMine && Boolean(gift.reservedBy);
@@ -390,15 +377,12 @@ export const App: React.FC = () => {
   if (isLoading) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-[#fbf8f3] text-slate-700 p-4">
-        <div className="w-20 h-20 rounded-3xl bg-gradient-to-br from-red-600 to-rose-600 text-white flex items-center justify-center text-4xl shadow-2xl shadow-red-600/30 animate-bounce">
+        <div className="w-16 h-16 rounded-2xl bg-red-600 text-white flex items-center justify-center text-3xl shadow-lg animate-bounce">
           🎄
         </div>
-        <h2 className="mt-5 text-xl font-extrabold festive-font text-slate-900">
-          Prepariamo l'albero di Natale...
+        <h2 className="mt-4 text-lg font-extrabold festive-font text-slate-900">
+          Caricamento regali...
         </h2>
-        <p className="mt-1 text-xs text-slate-500">
-          Sincronizzazione dei desideri della famiglia in corso
-        </p>
       </div>
     );
   }
@@ -408,7 +392,7 @@ export const App: React.FC = () => {
       {/* Effetto fiocchi di neve */}
       <SnowEffect active={snowing} />
 
-      {/* Navbar Principale */}
+      {/* Navbar Compatta */}
       <Navbar
         currentMember={currentMember || loggedUser || members[0] || null}
         currentUser={loggedUser}
@@ -429,83 +413,9 @@ export const App: React.FC = () => {
         totalGiftsCount={gifts.length}
       />
 
-      {/* Contenuto Principale */}
-      <main className="max-w-6xl mx-auto px-3.5 sm:px-6 lg:px-8 py-4 sm:py-7 flex-1 w-full space-y-6 pb-28 sm:pb-12 relative z-10">
-        {/* 1. Guida Veloce Autoesplicativa in 3 Passi (Richiudibile) */}
-        {showInlineGuide && (
-          <section className="relative bg-white/90 backdrop-blur-md rounded-3xl p-4 sm:p-5 border-2 border-amber-200/80 shadow-md shadow-amber-900/5 animate-in fade-in duration-300">
-            <div className="flex items-center justify-between gap-2 mb-3">
-              <div className="flex items-center gap-2">
-                <span className="px-2.5 py-0.5 rounded-full bg-amber-100 text-amber-900 text-[11px] font-extrabold uppercase tracking-wider flex items-center gap-1">
-                  <Sparkles className="w-3 h-3 text-amber-600" />
-                  <span>Come funziona in 3 semplici passi</span>
-                </span>
-              </div>
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => setIsGuideOpen(true)}
-                  className="text-xs font-bold text-red-600 hover:underline flex items-center gap-1"
-                >
-                  <span>Guida completa</span>
-                  <ArrowRight className="w-3 h-3" />
-                </button>
-                <button
-                  onClick={handleDismissInlineGuide}
-                  title="Nascondi questo riquadro"
-                  className="w-7 h-7 rounded-full hover:bg-slate-100 flex items-center justify-center text-slate-400 hover:text-slate-600 transition-colors"
-                >
-                  <X className="w-4 h-4" />
-                </button>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-              <div className="flex items-start gap-3 p-3 rounded-2xl bg-red-50/60 border border-red-100">
-                <div className="w-9 h-9 rounded-xl bg-red-600 text-white font-extrabold text-sm flex items-center justify-center shrink-0 shadow-xs">
-                  1
-                </div>
-                <div>
-                  <h3 className="text-xs sm:text-sm font-extrabold text-slate-900">
-                    Scrivi cosa desideri ✍️
-                  </h3>
-                  <p className="text-[11px] sm:text-xs text-slate-600 mt-0.5 leading-relaxed">
-                    Vai sulla tua scheda <strong>"Tu"</strong> e premi <strong>"+ Aggiungi Desiderio"</strong>. Inserisci nome, foto o link!
-                  </p>
-                </div>
-              </div>
-
-              <div className="flex items-start gap-3 p-3 rounded-2xl bg-emerald-50/60 border border-emerald-100">
-                <div className="w-9 h-9 rounded-xl bg-emerald-600 text-white font-extrabold text-sm flex items-center justify-center shrink-0 shadow-xs">
-                  2
-                </div>
-                <div>
-                  <h3 className="text-xs sm:text-sm font-extrabold text-slate-900">
-                    Prenota con "Ci penso io!" 🎁
-                  </h3>
-                  <p className="text-[11px] sm:text-xs text-slate-600 mt-0.5 leading-relaxed">
-                    Tocca il nome di un parente e, se vuoi comprargli un regalo, premi <strong>"Ci penso io!"</strong> per evitare doppioni.
-                  </p>
-                </div>
-              </div>
-
-              <div className="flex items-start gap-3 p-3 rounded-2xl bg-amber-50/70 border border-amber-200/70">
-                <div className="w-9 h-9 rounded-xl bg-amber-500 text-white font-extrabold text-base flex items-center justify-center shrink-0 shadow-xs">
-                  🤫
-                </div>
-                <div>
-                  <h3 className="text-xs sm:text-sm font-extrabold text-slate-900">
-                    Effetto Sorpresa Protetto!
-                  </h3>
-                  <p className="text-[11px] sm:text-xs text-slate-600 mt-0.5 leading-relaxed">
-                    Chi riceve il regalo <strong>non vedrà mai</strong> se il suo desiderio è stato prenotato. Lo vedono solo gli altri parenti!
-                  </p>
-                </div>
-              </div>
-            </div>
-          </section>
-        )}
-
-        {/* 2. Selettore Membri / Famiglia (Subito accessibile e chiarissimo) */}
+      {/* Contenuto Principale Compatto e Diretto */}
+      <main className="max-w-5xl mx-auto px-3 sm:px-6 py-3 sm:py-5 flex-1 w-full space-y-3 sm:space-y-4 pb-24 sm:pb-10 relative z-10">
+        {/* 1. Barra Orizzontale Compatta Membri Famiglia */}
         <MemberSelector
           members={members}
           selectedMemberId={selectedMemberId}
@@ -514,190 +424,138 @@ export const App: React.FC = () => {
           giftCounts={giftCounts}
         />
 
-        {/* 3. Hero Banner Contestuale (Spiega sempre cosa stai guardando) */}
+        {/* 2. Intestazione Contestuale Compatta (Senza occupare metà schermo) */}
         <section
-          className={`relative overflow-hidden rounded-[2rem] bg-gradient-to-br ${activeBannerTheme.gradientClass} text-white p-5 sm:p-8 shadow-xl shadow-black/10 transition-all duration-500`}
+          className={`relative overflow-hidden rounded-2xl bg-gradient-to-r ${activeBannerTheme.gradientClass} text-white px-4 py-3.5 sm:px-6 sm:py-4 shadow-sm transition-all duration-300`}
         >
-          <div className="absolute -top-10 -right-10 w-56 h-56 bg-white/10 rounded-full blur-2xl pointer-events-none" />
-          <div className="absolute -bottom-10 -left-10 w-48 h-48 bg-amber-400/15 rounded-full blur-2xl pointer-events-none" />
-
-          <div className="relative z-10 flex flex-col lg:flex-row lg:items-center justify-between gap-5">
-            <div className="space-y-3 max-w-2xl">
-              {/* Pillola stato */}
-              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-black/20 backdrop-blur-md text-xs font-extrabold uppercase tracking-wider text-white border border-white/20">
-                <Sparkles className="w-3.5 h-3.5 text-amber-300" />
-                {isViewingMyOwnList ? (
-                  <span>La tua lista personale dei desideri</span>
-                ) : currentMember ? (
-                  <span>Stai guardando la lista di {currentMember.name}</span>
-                ) : (
-                  <span>Panoramica di tutta la famiglia</span>
-                )}
+          <div className="relative z-10 flex items-center justify-between gap-3">
+            <div className="flex items-center gap-3 min-w-0">
+              <div className="w-11 h-11 sm:w-12 sm:h-12 rounded-xl bg-white/20 backdrop-blur-md border border-white/30 flex items-center justify-center text-2xl shrink-0">
+                {currentMember ? currentMember.avatar : loggedUser?.avatar || '🎄'}
               </div>
-
-              <div className="flex items-center gap-3.5 sm:gap-4">
-                <div className="w-14 h-14 sm:w-18 sm:h-18 rounded-2xl bg-white/20 backdrop-blur-md border-2 border-white/30 flex items-center justify-center text-3xl sm:text-4xl shadow-lg shrink-0">
-                  {currentMember ? currentMember.avatar : loggedUser?.avatar || '🎄'}
-                </div>
-                <div>
-                  <h2 className="text-2xl sm:text-3xl font-extrabold festive-font tracking-wide leading-tight">
-                    {isViewingMyOwnList
-                      ? `I tuoi desideri, ${currentMember?.name}`
-                      : currentMember
-                      ? `Cosa desidera ${currentMember.name}`
-                      : `Tutti i desideri sotto l'albero`}
-                  </h2>
-                  {currentMember?.bio ? (
-                    <p className="text-xs sm:text-sm text-white/90 italic mt-1 font-serif">
-                      "{currentMember.bio}"
-                    </p>
+              <div className="min-w-0">
+                <h2 className="text-base sm:text-xl font-extrabold festive-font tracking-wide truncate">
+                  {isViewingMyOwnList
+                    ? `La tua lista (${currentMember?.name})`
+                    : currentMember
+                    ? `Desideri di ${currentMember.name}`
+                    : `Tutti i desideri in famiglia`}
+                </h2>
+                <p className="text-[11px] sm:text-xs text-white/90 flex items-center gap-1 truncate mt-0.5">
+                  {isViewingMyOwnList ? (
+                    <>
+                      <EyeOff className="w-3 h-3 text-amber-300 shrink-0" />
+                      <span className="truncate">Non vedi chi prenota i tuoi regali 🤫</span>
+                    </>
+                  ) : currentMember ? (
+                    <>
+                      <Gift className="w-3 h-3 text-amber-300 shrink-0" />
+                      <span className="truncate">
+                        Premi "Ci penso io!" per prenotare ({currentMember.name} non lo saprà)
+                      </span>
+                    </>
                   ) : (
-                    <p className="text-xs sm:text-sm text-white/85 mt-1">
-                      {isViewingMyOwnList
-                        ? 'Aggiungi qui ciò che ti piacerebbe ricevere a Natale!'
-                        : currentMember
-                        ? `Scegli un regalo per ${currentMember.name} e premi "Ci penso io!" per prenotarlo.`
-                        : 'Esplora le idee regalo di tutti i familiari o filtra quelli ancora liberi.'}
-                    </p>
+                    <span className="truncate">
+                      Tocca una persona sopra per filtrare la sua lista
+                    </span>
                   )}
-                </div>
-              </div>
-
-              {/* Box Autoesplicativo Contestuale dentro il Banner */}
-              <div className="inline-flex items-center gap-2 px-3.5 py-2 rounded-2xl bg-black/20 backdrop-blur-md border border-white/15 text-xs text-white/95">
-                {isViewingMyOwnList ? (
-                  <>
-                    <EyeOff className="w-4 h-4 text-amber-300 shrink-0" />
-                    <span>
-                      <strong>Effetto sorpresa attivo:</strong> i parenti vedono i tuoi regali, ma tu non vedrai chi li prenota!
-                    </span>
-                  </>
-                ) : currentMember ? (
-                  <>
-                    <Gift className="w-4 h-4 text-amber-300 shrink-0" />
-                    <span>
-                      Se prenoti un regalo con <strong>"Ci penso io!"</strong>, gli altri parenti lo sapranno ma <strong>{currentMember.name} non vedrà nulla!</strong>
-                    </span>
-                  </>
-                ) : (
-                  <>
-                    <CheckCircle2 className="w-4 h-4 text-amber-300 shrink-0" />
-                    <span>
-                      Tocca un nome qui sopra per vedere i desideri di una singola persona.
-                    </span>
-                  </>
-                )}
+                </p>
               </div>
             </div>
 
-            {/* Azioni Banner */}
-            <div className="flex flex-wrap items-center gap-2.5 shrink-0">
+            {/* Azione rapida destra */}
+            <div className="flex items-center gap-1.5 shrink-0">
+              {isViewingMyOwnList && loggedUser ? (
+                <button
+                  onClick={() => openEditProfileFor(loggedUser)}
+                  className="px-2.5 py-1.5 rounded-xl bg-white/15 hover:bg-white/25 border border-white/25 text-white text-xs font-bold flex items-center gap-1 transition-all"
+                  title="Cambia colore ed emoji"
+                >
+                  <Palette className="w-3.5 h-3.5 text-amber-300" />
+                  <span className="hidden sm:inline">Tema</span>
+                </button>
+              ) : null}
+
               <button
                 onClick={() => {
                   setGiftToEdit(null);
                   setIsAddModalOpen(true);
                 }}
-                className="flex-1 sm:flex-initial px-5 py-3 rounded-2xl bg-white hover:bg-red-50 text-slate-900 font-extrabold text-xs sm:text-sm shadow-lg transition-all active:scale-95 flex items-center justify-center gap-2"
+                className="px-3 py-1.5 sm:px-3.5 sm:py-2 rounded-xl bg-white hover:bg-red-50 text-slate-900 font-extrabold text-xs shadow-xs transition-all active:scale-95 flex items-center gap-1"
               >
-                <Plus className="w-4 h-4 text-red-600 stroke-[3]" />
-                <span>Aggiungi mio desiderio</span>
+                <Plus className="w-3.5 h-3.5 text-red-600 stroke-[3]" />
+                <span>Aggiungi</span>
               </button>
-
-              {loggedUser && (
-                <button
-                  onClick={() => openEditProfileFor(loggedUser)}
-                  className="px-4 py-3 rounded-2xl bg-white/15 hover:bg-white/25 border border-white/25 text-white text-xs sm:text-sm font-bold backdrop-blur-sm transition-all flex items-center justify-center gap-1.5"
-                >
-                  <Palette className="w-4 h-4 text-amber-300" />
-                  <span>Personalizza profilo</span>
-                </button>
-              )}
-
-              {isLeoAdmin && (
-                <button
-                  onClick={() => setIsAdminPanelOpen(true)}
-                  className="px-4 py-3 rounded-2xl bg-amber-500 hover:bg-amber-600 text-white text-xs sm:text-sm font-bold shadow-md transition-all flex items-center gap-1.5 active:scale-95"
-                >
-                  <Crown className="w-4 h-4 text-yellow-100" />
-                  <span>Admin</span>
-                </button>
-              )}
             </div>
           </div>
         </section>
 
-        {/* 4. Barra Filtri e Ricerca */}
-        <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3 bg-white/80 backdrop-blur-md p-3.5 sm:p-4 rounded-2xl border border-slate-200/80 shadow-2xs">
-          <div className="flex flex-wrap items-center gap-2">
-            {/* Filtri rapidi disponibilità (visibili quando si guardano i regali degli altri) */}
-            {!isViewingMyOwnList ? (
-              <div className="flex items-center gap-1.5 bg-slate-100 p-1 rounded-xl">
-                <button
-                  onClick={() => setAvailabilityFilter('all')}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
-                    availabilityFilter === 'all'
-                      ? 'bg-white text-slate-900 shadow-2xs'
-                      : 'text-slate-600 hover:text-slate-900'
-                  }`}
-                >
-                  Tutti ({filteredGifts.length})
-                </button>
-                <button
-                  onClick={() => setAvailabilityFilter('available')}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1 ${
-                    availabilityFilter === 'available'
-                      ? 'bg-emerald-600 text-white shadow-2xs'
-                      : 'text-slate-600 hover:text-slate-900'
-                  }`}
-                >
-                  <span>🟢</span>
-                  <span>Ancora liberi</span>
-                </button>
-                <button
-                  onClick={() => setAvailabilityFilter('reserved')}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1 ${
-                    availabilityFilter === 'reserved'
-                      ? 'bg-amber-500 text-white shadow-2xs'
-                      : 'text-slate-600 hover:text-slate-900'
-                  }`}
-                >
-                  <span>🎀</span>
-                  <span>Già prenotati</span>
-                </button>
-              </div>
-            ) : (
-              <div className="flex items-center gap-2 px-2">
-                <span className="text-sm font-extrabold text-slate-800">
-                  I tuoi desideri inseriti ({filteredGifts.length})
-                </span>
-              </div>
-            )}
-          </div>
+        {/* 3. Barra Compatta Filtri + Ricerca su una sola riga */}
+        <div className="flex items-center justify-between gap-2">
+          {/* Filtri disponibilità (quando guardi gli altri) */}
+          {!isViewingMyOwnList ? (
+            <div className="flex items-center gap-1 bg-white p-1 rounded-xl border border-slate-200/80 shrink-0">
+              <button
+                onClick={() => setAvailabilityFilter('all')}
+                className={`px-2.5 py-1 rounded-lg text-[11px] sm:text-xs font-bold transition-all ${
+                  availabilityFilter === 'all'
+                    ? 'bg-slate-900 text-white'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                Tutti ({filteredGifts.length})
+              </button>
+              <button
+                onClick={() => setAvailabilityFilter('available')}
+                className={`px-2.5 py-1 rounded-lg text-[11px] sm:text-xs font-bold transition-all ${
+                  availabilityFilter === 'available'
+                    ? 'bg-emerald-600 text-white'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                Liberi
+              </button>
+              <button
+                onClick={() => setAvailabilityFilter('reserved')}
+                className={`px-2.5 py-1 rounded-lg text-[11px] sm:text-xs font-bold transition-all ${
+                  availabilityFilter === 'reserved'
+                    ? 'bg-amber-500 text-white'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                Presi
+              </button>
+            </div>
+          ) : (
+            <span className="text-xs font-bold text-slate-600 px-1 shrink-0">
+              {filteredGifts.length} {filteredGifts.length === 1 ? 'desiderio' : 'desideri'}
+            </span>
+          )}
 
-          {/* Input di Ricerca */}
-          <div className="relative min-w-[240px]">
-            <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+          {/* Input di Ricerca compatto */}
+          <div className="relative flex-1 max-w-xs ml-auto">
+            <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
             <input
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Cerca un regalo per nome..."
-              className="w-full pl-9 pr-8 py-2 text-xs sm:text-sm rounded-xl border border-slate-200 bg-slate-50/70 focus:bg-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-red-500/20 focus:border-red-500 transition-all"
+              placeholder="Cerca regalo..."
+              className="w-full pl-8 pr-7 py-1.5 text-xs rounded-xl border border-slate-200/90 bg-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-red-500/20 focus:border-red-500 transition-all"
             />
             {searchQuery && (
               <button
                 onClick={() => setSearchQuery('')}
-                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
               >
-                <X className="w-4 h-4" />
+                <X className="w-3.5 h-3.5" />
               </button>
             )}
           </div>
         </div>
 
-        {/* 5. Griglia dei Regali */}
+        {/* 4. Lista dei Regali Compatta (1 colonna su mobile, 2 su tablet/desktop) */}
         {filteredGifts.length > 0 ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5 sm:gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5 sm:gap-3.5">
             {filteredGifts.map((gift) => {
               const member = members.find((m) => m.id === gift.memberId);
               return (
@@ -719,27 +577,27 @@ export const App: React.FC = () => {
             })}
           </div>
         ) : (
-          /* Stato Vuoto Chiaro e Invitante */
-          <div className="text-center py-14 px-5 bg-white/90 backdrop-blur-md rounded-[2rem] border-2 border-dashed border-red-200 shadow-xs max-w-xl mx-auto my-4 space-y-4">
-            <div className="w-20 h-20 rounded-3xl bg-red-50 text-red-600 flex items-center justify-center mx-auto text-4xl shadow-inner">
+          /* Stato Vuoto Compatto */
+          <div className="text-center py-10 px-4 bg-white rounded-2xl border border-dashed border-slate-300 max-w-md mx-auto my-2 space-y-3">
+            <div className="w-12 h-12 rounded-2xl bg-red-50 text-red-600 flex items-center justify-center mx-auto text-2xl">
               {currentMember?.avatar || loggedUser?.avatar || '🎅'}
             </div>
-            <div className="space-y-1.5">
-              <h3 className="text-xl font-extrabold text-slate-900 festive-font">
+            <div className="space-y-1">
+              <h3 className="text-base font-extrabold text-slate-900 festive-font">
                 {searchQuery || availabilityFilter !== 'all'
-                  ? 'Nessun regalo trovato con questi filtri'
+                  ? 'Nessun regalo trovato'
                   : isViewingMyOwnList
-                  ? 'Non hai ancora scritto nessun desiderio!'
+                  ? 'La tua lista è ancora vuota'
                   : currentMember
-                  ? `${currentMember.name} non ha ancora aggiunto desideri`
-                  : 'La lista dei regali è ancora vuota'}
+                  ? `${currentMember.name} non ha ancora inserito desideri`
+                  : 'Nessun desiderio ancora inserito'}
               </h3>
-              <p className="text-xs sm:text-sm text-slate-500 max-w-md mx-auto leading-relaxed">
+              <p className="text-xs text-slate-500">
                 {searchQuery || availabilityFilter !== 'all'
-                  ? 'Prova a mostrare tutti i regali o a cancellare il testo nella barra di ricerca.'
+                  ? 'Prova a rimuovere i filtri di ricerca.'
                   : isViewingMyOwnList
-                  ? 'Aiuta la famiglia a farti il regalo perfetto! Premi il pulsante qui sotto per aggiungere il tuo primo desiderio.'
-                  : `Non appena ${currentMember?.name || 'qualcuno'} aggiungerà un regalo, apparirà automaticamente qui!`}
+                  ? 'Aggiungi il tuo primo desiderio per aiutare la famiglia!'
+                  : 'Appena verrà aggiunto un regalo comparirà qui.'}
               </p>
             </div>
 
@@ -749,9 +607,9 @@ export const App: React.FC = () => {
                   setSearchQuery('');
                   setAvailabilityFilter('all');
                 }}
-                className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-slate-900 text-white text-xs sm:text-sm font-bold hover:bg-slate-800 transition-all"
+                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-slate-900 text-white text-xs font-bold"
               >
-                Mostra tutti i regali
+                Mostra tutti
               </button>
             ) : (
               <button
@@ -759,54 +617,36 @@ export const App: React.FC = () => {
                   setGiftToEdit(null);
                   setIsAddModalOpen(true);
                 }}
-                className="inline-flex items-center gap-2 px-6 py-3 rounded-2xl text-white bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-700 hover:to-rose-700 text-xs sm:text-sm font-extrabold shadow-lg shadow-red-600/25 transition-all transform active:scale-95"
+                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-white bg-red-600 hover:bg-red-700 text-xs font-bold shadow-xs active:scale-95 transition-all"
               >
-                <Plus className="w-4 h-4 stroke-[3]" />
-                <span>Aggiungi un tuo desiderio</span>
+                <Plus className="w-3.5 h-3.5 stroke-[3]" />
+                <span>Aggiungi mio desiderio</span>
               </button>
             )}
           </div>
         )}
       </main>
 
-      {/* Footer */}
-      <footer className="mt-auto border-t border-red-100 bg-white/80 backdrop-blur-md py-6 text-center text-xs text-slate-500 relative z-10">
-        <div className="max-w-6xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-3">
-          <p className="flex items-center gap-1.5 justify-center font-medium">
-            <span>🎄 Lista Regali di Natale in Famiglia</span>
-            <span>•</span>
-            <span className="text-emerald-700 font-bold">Sincronizzata in Cloud</span>
-          </p>
-          <div className="flex flex-wrap items-center justify-center gap-4 text-xs">
+      {/* Footer Compatto */}
+      <footer className="mt-auto border-t border-slate-200/80 bg-white/70 py-4 text-center text-[11px] text-slate-500 relative z-10">
+        <div className="max-w-5xl mx-auto px-4 flex flex-wrap items-center justify-between gap-2">
+          <span>🎄 Lista Regali di Famiglia</span>
+          <div className="flex items-center gap-3">
             <button
               onClick={() => setIsGuideOpen(true)}
-              className="hover:text-red-600 font-bold text-slate-700 flex items-center gap-1 transition-colors"
+              className="hover:text-red-600 font-bold text-slate-700 flex items-center gap-1"
             >
-              <HelpCircle className="w-3.5 h-3.5 text-amber-600" />
-              <span>Guida: Come funziona</span>
+              <HelpCircle className="w-3 h-3 text-amber-600" />
+              <span>Come funziona</span>
             </button>
-            {loggedUser && (
-              <>
-                <span>•</span>
-                <button
-                  onClick={() => openEditProfileFor(loggedUser)}
-                  className="hover:text-red-600 transition-colors font-bold text-slate-700"
-                >
-                  Personalizza ({loggedUser.name})
-                </button>
-              </>
-            )}
             {isLeoAdmin && (
-              <>
-                <span>•</span>
-                <button
-                  onClick={() => setIsAdminPanelOpen(true)}
-                  className="hover:text-amber-600 text-amber-700 font-extrabold transition-colors flex items-center gap-1"
-                >
-                  <Crown className="w-3.5 h-3.5 text-amber-500" />
-                  <span>Pannello Admin</span>
-                </button>
-              </>
+              <button
+                onClick={() => setIsAdminPanelOpen(true)}
+                className="text-amber-700 font-bold flex items-center gap-1"
+              >
+                <Crown className="w-3 h-3 text-amber-500" />
+                <span>Admin</span>
+              </button>
             )}
           </div>
         </div>
