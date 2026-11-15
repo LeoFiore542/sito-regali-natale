@@ -1,6 +1,5 @@
 import React from 'react';
 import { FamilyMember } from '../types';
-import { Sparkles } from 'lucide-react';
 
 interface MemberSelectorProps {
   members: FamilyMember[];
@@ -22,87 +21,57 @@ export const MemberSelector: React.FC<MemberSelectorProps> = ({
   const otherMembers = members.filter((m) => m.id !== currentUserId);
 
   return (
-    <section className="bg-white rounded-2xl px-2.5 py-2.5 sm:px-4 sm:py-3 border border-slate-200/80 shadow-2xs">
-      <div className="flex items-center gap-1.5 sm:gap-2.5 overflow-x-auto no-scrollbar">
-        {/* 1. LA TUA LISTA (sempre prima) */}
+    <section className="bg-white rounded-2xl p-2.5 sm:p-3 border border-slate-200 shadow-sm">
+      <div className="flex flex-wrap items-center gap-1.5">
+        {/* 1. LA TUA LISTA */}
         {myMember && (
           <button
+            type="button"
             onClick={() => onSelectMember(myMember.id)}
-            className="group flex flex-col items-center shrink-0 w-[58px] sm:w-[68px] focus:outline-none active:scale-95 transition-transform"
+            className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-bold transition-all border ${
+              selectedMemberId === myMember.id
+                ? 'bg-red-600 text-white border-red-600 shadow-sm'
+                : 'bg-rose-50 text-red-900 border-rose-200 hover:bg-rose-100'
+            }`}
           >
-            <div className="relative">
-              <div
-                className={`w-11 h-11 sm:w-12 sm:h-12 rounded-2xl flex items-center justify-center text-xl sm:text-2xl transition-all ${
-                  selectedMemberId === myMember.id
-                    ? 'bg-red-600 text-white ring-2 ring-red-600 ring-offset-2 shadow-sm'
-                    : 'bg-rose-50 text-slate-800 border border-rose-200 hover:bg-rose-100'
-                }`}
-              >
-                {myMember.avatar}
-              </div>
-              {/* Badge contatore */}
-              <span
-                className={`absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 rounded-full text-[10px] font-extrabold flex items-center justify-center border border-white ${
-                  selectedMemberId === myMember.id
-                    ? 'bg-slate-900 text-white'
-                    : 'bg-red-600 text-white'
-                }`}
-              >
-                {giftCounts[myMember.id] || 0}
-              </span>
-            </div>
+            <span className="text-sm leading-none">{myMember.avatar}</span>
+            <span>Tu ({myMember.name})</span>
             <span
-              className={`mt-1 text-[11px] leading-tight truncate w-full text-center ${
+              className={`px-1.5 py-0.5 rounded-full text-[10px] font-extrabold leading-none ${
                 selectedMemberId === myMember.id
-                  ? 'font-extrabold text-red-600'
-                  : 'font-bold text-slate-700'
+                  ? 'bg-white/25 text-white'
+                  : 'bg-red-600 text-white'
               }`}
             >
-              Tu ({myMember.name})
+              {giftCounts[myMember.id] || 0}
             </span>
           </button>
         )}
 
-        {/* Divisore verticale sottile */}
-        <div className="h-8 w-px bg-slate-200 shrink-0 mx-0.5" />
-
         {/* 2. TUTTI I REGALI */}
         <button
+          type="button"
           onClick={() => onSelectMember('all')}
-          className="group flex flex-col items-center shrink-0 w-[54px] sm:w-[64px] focus:outline-none active:scale-95 transition-transform"
+          className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-bold transition-all border ${
+            selectedMemberId === 'all'
+              ? 'bg-slate-900 text-white border-slate-900 shadow-sm'
+              : 'bg-slate-100 text-slate-700 border-slate-200 hover:bg-slate-200/70'
+          }`}
         >
-          <div className="relative">
-            <div
-              className={`w-11 h-11 sm:w-12 sm:h-12 rounded-2xl flex items-center justify-center transition-all ${
-                selectedMemberId === 'all'
-                  ? 'bg-slate-900 text-amber-300 ring-2 ring-slate-900 ring-offset-2 shadow-sm'
-                  : 'bg-slate-100 text-amber-500 border border-slate-200 hover:bg-slate-200/70'
-              }`}
-            >
-              <Sparkles className="w-5 h-5" />
-            </div>
-            <span
-              className={`absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 rounded-full text-[10px] font-extrabold flex items-center justify-center border border-white ${
-                selectedMemberId === 'all'
-                  ? 'bg-red-600 text-white'
-                  : 'bg-slate-600 text-white'
-              }`}
-            >
-              {totalGifts}
-            </span>
-          </div>
+          <span className="text-sm leading-none">✨</span>
+          <span>Tutti</span>
           <span
-            className={`mt-1 text-[11px] leading-tight truncate w-full text-center ${
+            className={`px-1.5 py-0.5 rounded-full text-[10px] font-extrabold leading-none ${
               selectedMemberId === 'all'
-                ? 'font-extrabold text-slate-900'
-                : 'font-semibold text-slate-600'
+                ? 'bg-white/20 text-white'
+                : 'bg-slate-200 text-slate-700'
             }`}
           >
-            Tutti
+            {totalGifts}
           </span>
         </button>
 
-        {/* 3. GLI ALTRI MEMBRI DELLA FAMIGLIA */}
+        {/* 3. TUTTI GLI ALTRI FAMILIARI */}
         {otherMembers.map((member) => {
           const isSelected = selectedMemberId === member.id;
           const count = giftCounts[member.id] || 0;
@@ -110,39 +79,26 @@ export const MemberSelector: React.FC<MemberSelectorProps> = ({
           return (
             <button
               key={member.id}
+              type="button"
               onClick={() => onSelectMember(member.id)}
-              className="group flex flex-col items-center shrink-0 w-[56px] sm:w-[64px] focus:outline-none active:scale-95 transition-transform"
+              className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-bold transition-all border ${
+                isSelected
+                  ? 'bg-emerald-600 text-white border-emerald-600 shadow-sm'
+                  : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
+              }`}
             >
-              <div className="relative">
-                <div
-                  className={`w-11 h-11 sm:w-12 sm:h-12 rounded-2xl flex items-center justify-center text-xl sm:text-2xl transition-all ${
-                    isSelected
-                      ? 'bg-emerald-600 text-white ring-2 ring-emerald-600 ring-offset-2 shadow-sm'
-                      : 'bg-slate-50 text-slate-800 border border-slate-200/80 hover:bg-slate-100'
-                  }`}
-                >
-                  {member.avatar}
-                </div>
-                {count > 0 && (
-                  <span
-                    className={`absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 rounded-full text-[10px] font-extrabold flex items-center justify-center border border-white ${
-                      isSelected
-                        ? 'bg-slate-900 text-white'
-                        : 'bg-emerald-600 text-white'
-                    }`}
-                  >
-                    {count}
-                  </span>
-                )}
-              </div>
+              <span className="text-sm leading-none">{member.avatar}</span>
+              <span>{member.name}</span>
               <span
-                className={`mt-1 text-[11px] leading-tight truncate w-full text-center ${
+                className={`px-1.5 py-0.5 rounded-full text-[10px] font-extrabold leading-none ${
                   isSelected
-                    ? 'font-extrabold text-emerald-700'
-                    : 'font-medium text-slate-600'
+                    ? 'bg-white/25 text-white'
+                    : count > 0
+                    ? 'bg-emerald-100 text-emerald-800'
+                    : 'bg-slate-100 text-slate-400'
                 }`}
               >
-                {member.name}
+                {count}
               </span>
             </button>
           );

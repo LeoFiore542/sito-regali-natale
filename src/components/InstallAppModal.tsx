@@ -118,7 +118,7 @@ export const InstallAppModal: React.FC<InstallAppModalProps> = ({
               onClick={() => setActiveTab('ios')}
               className={`py-2 px-2 rounded-xl text-xs font-extrabold transition-all flex items-center justify-center gap-1.5 ${
                 activeTab === 'ios'
-                  ? 'bg-white text-slate-900 shadow-xs'
+                  ? 'bg-white text-slate-900 shadow-sm'
                   : 'text-slate-500 hover:text-slate-800'
               }`}
             >
@@ -130,7 +130,7 @@ export const InstallAppModal: React.FC<InstallAppModalProps> = ({
               onClick={() => setActiveTab('android')}
               className={`py-2 px-2 rounded-xl text-xs font-extrabold transition-all flex items-center justify-center gap-1.5 ${
                 activeTab === 'android'
-                  ? 'bg-white text-slate-900 shadow-xs'
+                  ? 'bg-white text-slate-900 shadow-sm'
                   : 'text-slate-500 hover:text-slate-800'
               }`}
             >
@@ -142,7 +142,7 @@ export const InstallAppModal: React.FC<InstallAppModalProps> = ({
               onClick={() => setActiveTab('desktop')}
               className={`py-2 px-2 rounded-xl text-xs font-extrabold transition-all flex items-center justify-center gap-1.5 ${
                 activeTab === 'desktop'
-                  ? 'bg-white text-slate-900 shadow-xs'
+                  ? 'bg-white text-slate-900 shadow-sm'
                   : 'text-slate-500 hover:text-slate-800'
               }`}
             >

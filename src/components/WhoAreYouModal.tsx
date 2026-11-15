@@ -112,7 +112,7 @@ export const WhoAreYouModal: React.FC<WhoAreYouModalProps> = ({
                     onClick={() => setSelectedPending(member)}
                     className="group relative flex flex-col items-center justify-center p-3.5 sm:p-4 rounded-2xl border-2 border-slate-200/80 bg-white hover:bg-red-50/60 hover:border-red-500 transition-all duration-200 transform hover:-translate-y-1 hover:shadow-lg active:scale-95"
                   >
-                    <div className="w-14 h-14 rounded-2xl bg-slate-50 group-hover:bg-white shadow-xs flex items-center justify-center text-3xl mb-2 group-hover:scale-110 transition-transform border border-slate-100">
+                    <div className="w-14 h-14 rounded-2xl bg-slate-50 group-hover:bg-white shadow-sm flex items-center justify-center text-3xl mb-2 group-hover:scale-110 transition-transform border border-slate-100">
                       {member.avatar}
                     </div>
                     <span className="text-sm font-extrabold text-slate-800 group-hover:text-red-700 transition-colors text-center truncate w-full">

@@ -13,8 +13,10 @@ import {
 } from './lib/storage';
 import { getBannerTheme } from './lib/bannerThemes';
 import { Navbar } from './components/Navbar';
+import { SidebarDrawer } from './components/SidebarDrawer';
 import { MemberSelector } from './components/MemberSelector';
 import { GiftCard } from './components/GiftCard';
+import { GiftDetailModal } from './components/GiftDetailModal';
 import { AddGiftModal } from './components/AddGiftModal';
 import { ManageMembersModal } from './components/ManageMembersModal';
 import { WhoAreYouModal } from './components/WhoAreYouModal';
@@ -26,12 +28,10 @@ import { SnowEffect } from './components/SnowEffect';
 import {
   Plus,
   Search,
-  Palette,
-  Crown,
-  HelpCircle,
   EyeOff,
   Gift,
   X,
+  HelpCircle,
 } from 'lucide-react';
 
 const CURRENT_USER_KEY = 'natale_logged_user_id';
@@ -43,6 +43,7 @@ export const App: React.FC = () => {
   const [gifts, setGifts] = useState<GiftItem[]>([]);
   const [selectedMemberId, setSelectedMemberId] = useState<string | 'all'>('all');
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isWhoAreYouOpen, setIsWhoAreYouOpen] = useState(false);
   const [isEditProfileOpen, setIsEditProfileOpen] = useState(false);
   const [isAdminPanelOpen, setIsAdminPanelOpen] = useState(false);
@@ -56,6 +57,7 @@ export const App: React.FC = () => {
   // Modali
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [giftToEdit, setGiftToEdit] = useState<GiftItem | null>(null);
+  const [selectedGiftForDetail, setSelectedGiftForDetail] = useState<GiftItem | null>(null);
   const [isMembersModalOpen, setIsMembersModalOpen] = useState(false);
   const [isInstallModalOpen, setIsInstallModalOpen] = useState(false);
   const [deferredPwaPrompt, setDeferredPwaPrompt] = useState<any>(() => {
@@ -165,6 +167,12 @@ export const App: React.FC = () => {
       unsubMembers();
     };
   }, []);
+
+  // Mantieni sincronizzato il regalo aperto nel popup dettagli quando arrivano aggiornamenti live
+  const activeDetailGift = useMemo(() => {
+    if (!selectedGiftForDetail) return null;
+    return gifts.find((g) => g.id === selectedGiftForDetail.id) || null;
+  }, [gifts, selectedGiftForDetail]);
 
   // Selezione permanente e definitiva di chi sei
   const handleSelectUserIdentity = (member: FamilyMember) => {
@@ -368,7 +376,6 @@ export const App: React.FC = () => {
     return getBannerTheme('red-christmas');
   }, [currentMember, loggedUser]);
 
-  // Apri personalizzazione per un membro
   const openEditProfileFor = (member: FamilyMember) => {
     setProfileToEdit(member);
     setIsEditProfileOpen(true);
@@ -392,30 +399,47 @@ export const App: React.FC = () => {
       {/* Effetto fiocchi di neve */}
       <SnowEffect active={snowing} />
 
-      {/* Navbar Compatta */}
+      {/* Navbar Superiore con pulsante Menu Laterale */}
       <Navbar
         currentMember={currentMember || loggedUser || members[0] || null}
         currentUser={loggedUser}
-        isAdmin={isLeoAdmin}
-        onOpenAdmin={() => setIsAdminPanelOpen(true)}
-        onOpenEditProfile={() => {
-          if (loggedUser) openEditProfileFor(loggedUser);
-        }}
+        onOpenSidebar={() => setIsSidebarOpen(true)}
         onOpenAddModal={() => {
           setGiftToEdit(null);
           setIsAddModalOpen(true);
         }}
+        onInstallApp={handleInstallAppClick}
+        isAppInstalled={isAppInstalled}
+      />
+
+      {/* Menu Laterale con tutte le funzioni */}
+      <SidebarDrawer
+        isOpen={isSidebarOpen}
+        onClose={() => setIsSidebarOpen(false)}
+        currentUser={loggedUser}
+        members={members}
+        selectedMemberId={selectedMemberId}
+        onSelectMember={handleSelectMember}
+        giftCounts={giftCounts}
+        onOpenAddModal={() => {
+          setGiftToEdit(null);
+          setIsAddModalOpen(true);
+        }}
+        onOpenEditProfile={() => {
+          if (loggedUser) openEditProfileFor(loggedUser);
+        }}
         onOpenGuide={() => setIsGuideOpen(true)}
         onInstallApp={handleInstallAppClick}
         isAppInstalled={isAppInstalled}
+        isAdmin={isLeoAdmin}
+        onOpenAdmin={() => setIsAdminPanelOpen(true)}
         snowing={snowing}
         toggleSnow={() => setSnowing(!snowing)}
-        totalGiftsCount={gifts.length}
       />
 
-      {/* Contenuto Principale Compatto e Diretto */}
-      <main className="max-w-5xl mx-auto px-3 sm:px-6 py-3 sm:py-5 flex-1 w-full space-y-3 sm:space-y-4 pb-24 sm:pb-10 relative z-10">
-        {/* 1. Barra Orizzontale Compatta Membri Famiglia */}
+      {/* Contenuto Principale */}
+      <main className="max-w-4xl mx-auto px-3 sm:px-6 py-3 sm:py-5 flex-1 w-full space-y-3 relative z-10">
+        {/* 1. Visualizzazione compatta di tutti i membri della famiglia */}
         <MemberSelector
           members={members}
           selectedMemberId={selectedMemberId}
@@ -424,80 +448,56 @@ export const App: React.FC = () => {
           giftCounts={giftCounts}
         />
 
-        {/* 2. Intestazione Contestuale Compatta (Senza occupare metà schermo) */}
+        {/* 2. Intestazione Compatta Lista Selezionata */}
         <section
-          className={`relative overflow-hidden rounded-2xl bg-gradient-to-r ${activeBannerTheme.gradientClass} text-white px-4 py-3.5 sm:px-6 sm:py-4 shadow-sm transition-all duration-300`}
+          className={`rounded-2xl bg-gradient-to-r ${activeBannerTheme.gradientClass} text-white px-4 py-3 shadow-sm flex items-center justify-between gap-3`}
         >
-          <div className="relative z-10 flex items-center justify-between gap-3">
-            <div className="flex items-center gap-3 min-w-0">
-              <div className="w-11 h-11 sm:w-12 sm:h-12 rounded-xl bg-white/20 backdrop-blur-md border border-white/30 flex items-center justify-center text-2xl shrink-0">
-                {currentMember ? currentMember.avatar : loggedUser?.avatar || '🎄'}
-              </div>
-              <div className="min-w-0">
-                <h2 className="text-base sm:text-xl font-extrabold festive-font tracking-wide truncate">
-                  {isViewingMyOwnList
-                    ? `La tua lista (${currentMember?.name})`
-                    : currentMember
-                    ? `Desideri di ${currentMember.name}`
-                    : `Tutti i desideri in famiglia`}
-                </h2>
-                <p className="text-[11px] sm:text-xs text-white/90 flex items-center gap-1 truncate mt-0.5">
-                  {isViewingMyOwnList ? (
-                    <>
-                      <EyeOff className="w-3 h-3 text-amber-300 shrink-0" />
-                      <span className="truncate">Non vedi chi prenota i tuoi regali 🤫</span>
-                    </>
-                  ) : currentMember ? (
-                    <>
-                      <Gift className="w-3 h-3 text-amber-300 shrink-0" />
-                      <span className="truncate">
-                        Premi "Ci penso io!" per prenotare ({currentMember.name} non lo saprà)
-                      </span>
-                    </>
-                  ) : (
-                    <span className="truncate">
-                      Tocca una persona sopra per filtrare la sua lista
-                    </span>
-                  )}
-                </p>
-              </div>
+          <div className="flex items-center gap-2.5 min-w-0">
+            <div className="w-10 h-10 rounded-xl bg-white/20 border border-white/30 flex items-center justify-center text-xl shrink-0">
+              {currentMember ? currentMember.avatar : loggedUser?.avatar || '🎄'}
             </div>
-
-            {/* Azione rapida destra */}
-            <div className="flex items-center gap-1.5 shrink-0">
-              {isViewingMyOwnList && loggedUser ? (
-                <button
-                  onClick={() => openEditProfileFor(loggedUser)}
-                  className="px-2.5 py-1.5 rounded-xl bg-white/15 hover:bg-white/25 border border-white/25 text-white text-xs font-bold flex items-center gap-1 transition-all"
-                  title="Cambia colore ed emoji"
-                >
-                  <Palette className="w-3.5 h-3.5 text-amber-300" />
-                  <span className="hidden sm:inline">Tema</span>
-                </button>
-              ) : null}
-
-              <button
-                onClick={() => {
-                  setGiftToEdit(null);
-                  setIsAddModalOpen(true);
-                }}
-                className="px-3 py-1.5 sm:px-3.5 sm:py-2 rounded-xl bg-white hover:bg-red-50 text-slate-900 font-extrabold text-xs shadow-xs transition-all active:scale-95 flex items-center gap-1"
-              >
-                <Plus className="w-3.5 h-3.5 text-red-600 stroke-[3]" />
-                <span>Aggiungi</span>
-              </button>
+            <div className="min-w-0">
+              <h2 className="text-sm sm:text-base font-extrabold festive-font truncate">
+                {isViewingMyOwnList
+                  ? `I tuoi desideri (${currentMember?.name})`
+                  : currentMember
+                  ? `Lista di ${currentMember.name}`
+                  : `Tutti i regali della famiglia`}
+              </h2>
+              <p className="text-[11px] text-white/90 truncate flex items-center gap-1">
+                {isViewingMyOwnList ? (
+                  <>
+                    <EyeOff className="w-3 h-3 text-amber-300 shrink-0" />
+                    <span>Sorpresa protetta: non vedi chi prenota</span>
+                  </>
+                ) : (
+                  <>
+                    <Gift className="w-3 h-3 text-amber-300 shrink-0" />
+                    <span>Tocca un regalo in elenco per vedere foto e dettagli</span>
+                  </>
+                )}
+              </p>
             </div>
           </div>
+
+          <button
+            type="button"
+            onClick={() => setIsGuideOpen(true)}
+            className="px-2.5 py-1.5 rounded-xl bg-white/20 hover:bg-white/30 text-white text-xs font-bold flex items-center gap-1 shrink-0 transition-colors"
+          >
+            <HelpCircle className="w-3.5 h-3.5 text-amber-300" />
+            <span className="hidden xs:inline sm:inline">Guida</span>
+          </button>
         </section>
 
-        {/* 3. Barra Compatta Filtri + Ricerca su una sola riga */}
+        {/* 3. Barra Filtri e Ricerca */}
         <div className="flex items-center justify-between gap-2">
-          {/* Filtri disponibilità (quando guardi gli altri) */}
           {!isViewingMyOwnList ? (
-            <div className="flex items-center gap-1 bg-white p-1 rounded-xl border border-slate-200/80 shrink-0">
+            <div className="flex items-center gap-1 bg-white p-1 rounded-xl border border-slate-200 shadow-sm shrink-0">
               <button
+                type="button"
                 onClick={() => setAvailabilityFilter('all')}
-                className={`px-2.5 py-1 rounded-lg text-[11px] sm:text-xs font-bold transition-all ${
+                className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-colors ${
                   availabilityFilter === 'all'
                     ? 'bg-slate-900 text-white'
                     : 'text-slate-600 hover:text-slate-900'
@@ -506,8 +506,9 @@ export const App: React.FC = () => {
                 Tutti ({filteredGifts.length})
               </button>
               <button
+                type="button"
                 onClick={() => setAvailabilityFilter('available')}
-                className={`px-2.5 py-1 rounded-lg text-[11px] sm:text-xs font-bold transition-all ${
+                className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-colors ${
                   availabilityFilter === 'available'
                     ? 'bg-emerald-600 text-white'
                     : 'text-slate-600 hover:text-slate-900'
@@ -516,8 +517,9 @@ export const App: React.FC = () => {
                 Liberi
               </button>
               <button
+                type="button"
                 onClick={() => setAvailabilityFilter('reserved')}
-                className={`px-2.5 py-1 rounded-lg text-[11px] sm:text-xs font-bold transition-all ${
+                className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-colors ${
                   availabilityFilter === 'reserved'
                     ? 'bg-amber-500 text-white'
                     : 'text-slate-600 hover:text-slate-900'
@@ -528,22 +530,23 @@ export const App: React.FC = () => {
             </div>
           ) : (
             <span className="text-xs font-bold text-slate-600 px-1 shrink-0">
-              {filteredGifts.length} {filteredGifts.length === 1 ? 'desiderio' : 'desideri'}
+              {filteredGifts.length} {filteredGifts.length === 1 ? 'elemento' : 'elementi'}
             </span>
           )}
 
-          {/* Input di Ricerca compatto */}
+          {/* Campo ricerca */}
           <div className="relative flex-1 max-w-xs ml-auto">
             <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
             <input
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Cerca regalo..."
-              className="w-full pl-8 pr-7 py-1.5 text-xs rounded-xl border border-slate-200/90 bg-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-red-500/20 focus:border-red-500 transition-all"
+              placeholder="Cerca in lista..."
+              className="w-full pl-8 pr-7 py-1.5 text-xs rounded-xl border border-slate-200 bg-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-red-500/20 focus:border-red-500"
             />
             {searchQuery && (
               <button
+                type="button"
                 onClick={() => setSearchQuery('')}
                 className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
               >
@@ -553,9 +556,9 @@ export const App: React.FC = () => {
           </div>
         </div>
 
-        {/* 4. Lista dei Regali Compatta (1 colonna su mobile, 2 su tablet/desktop) */}
+        {/* 4. Visualizzazione in ELENCO degli elementi della lista */}
         {filteredGifts.length > 0 ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5 sm:gap-3.5">
+          <div className="bg-white rounded-2xl border border-slate-200 shadow-sm divide-y divide-slate-100 overflow-hidden">
             {filteredGifts.map((gift) => {
               const member = members.find((m) => m.id === gift.memberId);
               return (
@@ -564,11 +567,7 @@ export const App: React.FC = () => {
                   gift={gift}
                   member={member}
                   showMemberBadge={selectedMemberId === 'all'}
-                  onEdit={(g) => {
-                    setGiftToEdit(g);
-                    setIsAddModalOpen(true);
-                  }}
-                  onDelete={handleDeleteGift}
+                  onSelect={(g) => setSelectedGiftForDetail(g)}
                   onToggleReserve={handleToggleReserve}
                   currentUserId={currentUserId || undefined}
                   currentUserName={loggedUser?.name}
@@ -577,8 +576,8 @@ export const App: React.FC = () => {
             })}
           </div>
         ) : (
-          /* Stato Vuoto Compatto */
-          <div className="text-center py-10 px-4 bg-white rounded-2xl border border-dashed border-slate-300 max-w-md mx-auto my-2 space-y-3">
+          /* Stato Vuoto */
+          <div className="text-center py-10 px-4 bg-white rounded-2xl border border-dashed border-slate-300 space-y-3">
             <div className="w-12 h-12 rounded-2xl bg-red-50 text-red-600 flex items-center justify-center mx-auto text-2xl">
               {currentMember?.avatar || loggedUser?.avatar || '🎅'}
             </div>
@@ -597,12 +596,13 @@ export const App: React.FC = () => {
                   ? 'Prova a rimuovere i filtri di ricerca.'
                   : isViewingMyOwnList
                   ? 'Aggiungi il tuo primo desiderio per aiutare la famiglia!'
-                  : 'Appena verrà aggiunto un regalo comparirà qui.'}
+                  : 'Appena verrà aggiunto un regalo comparirà in questo elenco.'}
               </p>
             </div>
 
             {searchQuery || availabilityFilter !== 'all' ? (
               <button
+                type="button"
                 onClick={() => {
                   setSearchQuery('');
                   setAvailabilityFilter('all');
@@ -613,44 +613,40 @@ export const App: React.FC = () => {
               </button>
             ) : (
               <button
+                type="button"
                 onClick={() => {
                   setGiftToEdit(null);
                   setIsAddModalOpen(true);
                 }}
-                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-white bg-red-600 hover:bg-red-700 text-xs font-bold shadow-xs active:scale-95 transition-all"
+                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-white bg-red-600 hover:bg-red-700 text-xs font-bold shadow-sm transition-colors"
               >
-                <Plus className="w-3.5 h-3.5 stroke-[3]" />
-                <span>Aggiungi mio desiderio</span>
+                <Plus className="w-4 h-4 stroke-[2.5]" />
+                <span>Aggiungi desiderio</span>
               </button>
             )}
           </div>
         )}
       </main>
 
-      {/* Footer Compatto */}
-      <footer className="mt-auto border-t border-slate-200/80 bg-white/70 py-4 text-center text-[11px] text-slate-500 relative z-10">
-        <div className="max-w-5xl mx-auto px-4 flex flex-wrap items-center justify-between gap-2">
-          <span>🎄 Lista Regali di Famiglia</span>
-          <div className="flex items-center gap-3">
-            <button
-              onClick={() => setIsGuideOpen(true)}
-              className="hover:text-red-600 font-bold text-slate-700 flex items-center gap-1"
-            >
-              <HelpCircle className="w-3 h-3 text-amber-600" />
-              <span>Come funziona</span>
-            </button>
-            {isLeoAdmin && (
-              <button
-                onClick={() => setIsAdminPanelOpen(true)}
-                className="text-amber-700 font-bold flex items-center gap-1"
-              >
-                <Crown className="w-3 h-3 text-amber-500" />
-                <span>Admin</span>
-              </button>
-            )}
-          </div>
-        </div>
-      </footer>
+      {/* Scheda Popup per ulteriori dettagli (foto e descrizione) */}
+      <GiftDetailModal
+        gift={activeDetailGift}
+        member={
+          activeDetailGift
+            ? members.find((m) => m.id === activeDetailGift.memberId)
+            : undefined
+        }
+        isOpen={Boolean(activeDetailGift)}
+        onClose={() => setSelectedGiftForDetail(null)}
+        onEdit={(g) => {
+          setGiftToEdit(g);
+          setIsAddModalOpen(true);
+        }}
+        onDelete={handleDeleteGift}
+        onToggleReserve={handleToggleReserve}
+        currentUserId={currentUserId || undefined}
+        currentUserName={loggedUser?.name}
+      />
 
       {/* Schermata Iniziale Obbligatoria "Chi sei?" */}
       <WhoAreYouModal
