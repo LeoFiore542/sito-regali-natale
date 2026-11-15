@@ -6,7 +6,6 @@ import {
   deleteMember as removeMemberStorage,
   saveGift,
   deleteGift as removeGiftStorage,
-  getActiveMemberId,
   setActiveMemberId,
 } from './lib/storage';
 import { Navbar } from './components/Navbar';
@@ -15,13 +14,18 @@ import { GiftCard } from './components/GiftCard';
 import { AddGiftModal } from './components/AddGiftModal';
 import { BackupModal } from './components/BackupModal';
 import { ManageMembersModal } from './components/ManageMembersModal';
+import { WhoAreYouModal } from './components/WhoAreYouModal';
 import { SnowEffect } from './components/SnowEffect';
-import { Plus, Search, Sparkles } from 'lucide-react';
+import { Plus, Search, Sparkles, UserCheck } from 'lucide-react';
+
+const CURRENT_USER_KEY = 'natale_logged_user_id';
 
 export const App: React.FC = () => {
   const [members, setMembers] = useState<FamilyMember[]>([]);
   const [gifts, setGifts] = useState<GiftItem[]>([]);
   const [selectedMemberId, setSelectedMemberId] = useState<string | 'all'>('all');
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [isWhoAreYouOpen, setIsWhoAreYouOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [snowing, setSnowing] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
@@ -37,17 +41,37 @@ export const App: React.FC = () => {
     loadInitialData().then(({ members, gifts }) => {
       setMembers(members);
       setGifts(gifts);
-      const savedActive = getActiveMemberId();
-      if (savedActive && members.some((m) => m.id === savedActive)) {
-        setSelectedMemberId(savedActive);
+
+      const savedUser = localStorage.getItem(CURRENT_USER_KEY);
+      if (savedUser && members.some((m) => m.id === savedUser)) {
+        setCurrentUserId(savedUser);
+        setSelectedMemberId(savedUser);
       } else {
+        // La prima cosa che il sito chiede è chi sei!
+        setIsWhoAreYouOpen(true);
         setSelectedMemberId('all');
       }
+
       setIsLoading(false);
     });
   }, []);
 
-  // Aggiorna membro attivo e memorizza preferenza
+  // Seleziona chi sei (identità)
+  const handleSelectUserIdentity = (member: FamilyMember) => {
+    setCurrentUserId(member.id);
+    localStorage.setItem(CURRENT_USER_KEY, member.id);
+    setSelectedMemberId(member.id);
+    setActiveMemberId(member.id);
+    setIsWhoAreYouOpen(false);
+  };
+
+  // Esplora senza identificarsi subito
+  const handleExploreAll = () => {
+    setSelectedMemberId('all');
+    setIsWhoAreYouOpen(false);
+  };
+
+  // Aggiorna membro visualizzato
   const handleSelectMember = (id: string | 'all') => {
     setSelectedMemberId(id);
     setActiveMemberId(id === 'all' ? null : id);
@@ -90,6 +114,10 @@ export const App: React.FC = () => {
     if (selectedMemberId === id) {
       setSelectedMemberId('all');
     }
+    if (currentUserId === id) {
+      setCurrentUserId(null);
+      localStorage.removeItem(CURRENT_USER_KEY);
+    }
   };
 
   // Salva regalo (nuovo o modificato)
@@ -122,10 +150,13 @@ export const App: React.FC = () => {
   // Toggle "Prenotato / Ci penso io"
   const handleToggleReserve = async (gift: GiftItem) => {
     let buyerName: string | null = null;
+    const currentUserObj = members.find((m) => m.id === currentUserId);
+
     if (!gift.reservedBy) {
+      const defaultName = currentUserObj ? currentUserObj.name : 'Io';
       const promptName = prompt(
         `Chi acquisterà questo regalo? (Inserisci il tuo nome per avvisare la famiglia)`,
-        'Io'
+        defaultName
       );
       if (!promptName || !promptName.trim()) return;
       buyerName = promptName.trim();
@@ -161,11 +192,16 @@ export const App: React.FC = () => {
     });
   }, [gifts, selectedMemberId, searchQuery]);
 
-  // Membro correntemente attivo
+  // Membro correntemente attivo per la visualizzazione
   const currentMember = useMemo(() => {
     if (selectedMemberId === 'all') return members[0] || null;
     return members.find((m) => m.id === selectedMemberId) || null;
   }, [members, selectedMemberId]);
+
+  // Utente loggato
+  const loggedUser = useMemo(() => {
+    return members.find((m) => m.id === currentUserId) || null;
+  }, [members, currentUserId]);
 
   if (isLoading) {
     return (
@@ -188,6 +224,8 @@ export const App: React.FC = () => {
       {/* Navbar Principale */}
       <Navbar
         currentMember={currentMember}
+        currentUser={loggedUser}
+        onOpenWhoAreYou={() => setIsWhoAreYouOpen(true)}
         onOpenAddModal={() => {
           setGiftToEdit(null);
           setIsAddModalOpen(true);
@@ -208,17 +246,23 @@ export const App: React.FC = () => {
             <div className="space-y-2 max-w-xl">
               <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/10 backdrop-blur-md text-xs font-semibold text-red-100 border border-white/10">
                 <Sparkles className="w-3.5 h-3.5 text-amber-300" />
-                Natale in Famiglia
+                {loggedUser ? (
+                  <span>Ciao, {loggedUser.name}! {loggedUser.avatar}</span>
+                ) : (
+                  <span>Natale in Famiglia</span>
+                )}
               </div>
               <h2 className="text-2xl sm:text-3xl font-bold festive-font tracking-wide leading-tight">
-                Cosa vorresti trovare sotto l'albero?
+                {loggedUser
+                  ? `${loggedUser.name}, cosa vorresti trovare sotto l'albero?`
+                  : `Cosa vorresti trovare sotto l'albero?`}
               </h2>
               <p className="text-sm text-red-100/90 leading-relaxed">
                 Aggiungi qui i tuoi desideri con foto, nome, note e link d'acquisto. Ognuno può compilare la propria lista e vedere quella degli altri!
               </p>
             </div>
 
-            <div className="flex items-center gap-3">
+            <div className="flex flex-wrap items-center gap-3">
               <button
                 onClick={() => {
                   setGiftToEdit(null);
@@ -228,6 +272,14 @@ export const App: React.FC = () => {
               >
                 <Plus className="w-4 h-4 text-red-600 stroke-[3]" />
                 <span>Aggiungi un Regalo</span>
+              </button>
+
+              <button
+                onClick={() => setIsWhoAreYouOpen(true)}
+                className="px-4 py-3 rounded-2xl bg-red-900/40 hover:bg-red-900/60 border border-red-400/30 text-white text-xs font-semibold backdrop-blur-sm transition-colors flex items-center gap-1.5"
+              >
+                <UserCheck className="w-4 h-4 text-amber-300" />
+                <span>{loggedUser ? 'Cambia Profilo' : 'Chi sei?'}</span>
               </button>
             </div>
           </div>
@@ -293,6 +345,7 @@ export const App: React.FC = () => {
                   }}
                   onDelete={handleDeleteGift}
                   onToggleReserve={handleToggleReserve}
+                  currentUserId={currentUserId || undefined}
                 />
               );
             })}
@@ -301,16 +354,20 @@ export const App: React.FC = () => {
           /* Stato Vuoto Accogliente */
           <div className="text-center py-16 px-4 bg-white rounded-3xl border border-red-100 shadow-sm max-w-xl mx-auto my-6 space-y-4">
             <div className="w-16 h-16 rounded-3xl bg-red-50 text-red-600 flex items-center justify-center mx-auto text-3xl">
-              🎅
+              {currentMember?.avatar || '🎅'}
             </div>
             <div className="space-y-1">
               <h3 className="text-lg font-bold text-slate-900 festive-font">
-                {searchQuery ? 'Nessun risultato trovato' : 'Nessun regalo ancora inserito'}
+                {searchQuery
+                  ? 'Nessun risultato trovato'
+                  : selectedMemberId === 'all'
+                  ? 'Nessun regalo ancora inserito nella famiglia'
+                  : `La lista di ${currentMember?.name} è ancora vuota`}
               </h3>
               <p className="text-xs sm:text-sm text-slate-500 max-w-sm mx-auto">
                 {searchQuery
                   ? 'Prova a cercare un nome diverso o cancella il testo nel campo di ricerca.'
-                  : 'Questa lista è ancora vuota. Inizia subito aggiungendo il primo regalo desiderato!'}
+                  : 'Inizia subito aggiungendo il primo regalo desiderato per Natale!'}
               </p>
             </div>
             {!searchQuery && (
@@ -339,6 +396,13 @@ export const App: React.FC = () => {
           </p>
           <div className="flex items-center gap-4 text-xs text-slate-500">
             <button
+              onClick={() => setIsWhoAreYouOpen(true)}
+              className="hover:text-red-600 transition-colors font-medium"
+            >
+              Cambia Profilo
+            </button>
+            <span>•</span>
+            <button
               onClick={() => setIsBackupModalOpen(true)}
               className="hover:text-red-600 transition-colors"
             >
@@ -349,11 +413,21 @@ export const App: React.FC = () => {
               onClick={() => setIsBackupModalOpen(true)}
               className="hover:text-red-600 transition-colors"
             >
-              Backup / GitHub Pages
+              Backup
             </button>
           </div>
         </div>
       </footer>
+
+      {/* Schermata Iniziale "Chi sei?" */}
+      <WhoAreYouModal
+        isOpen={isWhoAreYouOpen}
+        members={members}
+        onSelectUser={handleSelectUserIdentity}
+        onExploreAll={handleExploreAll}
+        canDismiss={!!currentUserId}
+        onClose={() => setIsWhoAreYouOpen(false)}
+      />
 
       {/* Modale Aggiungi / Modifica Regalo */}
       <AddGiftModal
@@ -364,7 +438,13 @@ export const App: React.FC = () => {
         }}
         onSave={handleSaveGift}
         members={members}
-        initialMemberId={selectedMemberId === 'all' ? (members[0]?.id ?? '') : selectedMemberId}
+        initialMemberId={
+          currentUserId && members.some((m) => m.id === currentUserId)
+            ? currentUserId
+            : selectedMemberId === 'all'
+            ? (members[0]?.id ?? '')
+            : selectedMemberId
+        }
         giftToEdit={giftToEdit}
       />
 

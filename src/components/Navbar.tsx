@@ -1,9 +1,11 @@
 import React from 'react';
-import { Gift, Plus, Sparkles, Share2, Users } from 'lucide-react';
+import { Gift, Plus, Sparkles, Share2, Users, UserCheck } from 'lucide-react';
 import { FamilyMember } from '../types';
 
 interface NavbarProps {
   currentMember: FamilyMember | null;
+  currentUser: FamilyMember | null;
+  onOpenWhoAreYou: () => void;
   onOpenAddModal: () => void;
   onOpenBackupModal: () => void;
   onOpenMembersModal: () => void;
@@ -14,6 +16,8 @@ interface NavbarProps {
 
 export const Navbar: React.FC<NavbarProps> = ({
   currentMember,
+  currentUser,
+  onOpenWhoAreYou,
   onOpenAddModal,
   onOpenBackupModal,
   onOpenMembersModal,
@@ -48,6 +52,30 @@ export const Navbar: React.FC<NavbarProps> = ({
 
           {/* Azioni Principali */}
           <div className="flex items-center space-x-2 sm:space-x-3">
+            {/* Profilo "Chi sei?" */}
+            <button
+              onClick={onOpenWhoAreYou}
+              title="Cambia utente o seleziona chi sei"
+              className={`flex items-center gap-1.5 px-3 py-1.5 sm:py-2 rounded-xl text-xs sm:text-sm font-semibold transition-all border ${
+                currentUser
+                  ? 'bg-rose-50 border-rose-200 text-rose-800 hover:bg-rose-100'
+                  : 'bg-amber-50 border-amber-300 text-amber-800 hover:bg-amber-100 animate-pulse'
+              }`}
+            >
+              {currentUser ? (
+                <>
+                  <span className="text-base">{currentUser.avatar}</span>
+                  <span className="hidden sm:inline">Sono</span>
+                  <span className="underline decoration-rose-300 underline-offset-2">{currentUser.name}</span>
+                </>
+              ) : (
+                <>
+                  <UserCheck className="w-4 h-4 text-amber-600" />
+                  <span>Chi sei?</span>
+                </>
+              )}
+            </button>
+
             {/* Toggle Fiocchi di Neve */}
             <button
               onClick={toggleSnow}
@@ -78,7 +106,7 @@ export const Navbar: React.FC<NavbarProps> = ({
               className="p-2 sm:px-3 sm:py-2 rounded-xl border border-slate-200 text-slate-700 hover:bg-slate-50 flex items-center space-x-2 text-sm font-medium transition-colors"
             >
               <Share2 className="w-4 h-4 sm:w-5 sm:h-5 text-amber-600" />
-              <span className="hidden md:inline">Condividi / Backup</span>
+              <span className="hidden md:inline">Condividi</span>
             </button>
 
             {/* Bottone Aggiungi Regalo */}
