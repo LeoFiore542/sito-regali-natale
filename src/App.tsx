@@ -8,6 +8,7 @@ import {
   deleteGift as removeGiftStorage,
   setActiveMemberId,
 } from './lib/storage';
+import { getBannerTheme } from './lib/bannerThemes';
 import { Navbar } from './components/Navbar';
 import { MemberSelector } from './components/MemberSelector';
 import { GiftCard } from './components/GiftCard';
@@ -15,8 +16,9 @@ import { AddGiftModal } from './components/AddGiftModal';
 import { BackupModal } from './components/BackupModal';
 import { ManageMembersModal } from './components/ManageMembersModal';
 import { WhoAreYouModal } from './components/WhoAreYouModal';
+import { EditProfileModal } from './components/EditProfileModal';
 import { SnowEffect } from './components/SnowEffect';
-import { Plus, Search, Sparkles, UserCheck } from 'lucide-react';
+import { Plus, Search, Sparkles, UserCheck, Palette } from 'lucide-react';
 
 const CURRENT_USER_KEY = 'natale_logged_user_id';
 
@@ -26,6 +28,8 @@ export const App: React.FC = () => {
   const [selectedMemberId, setSelectedMemberId] = useState<string | 'all'>('all');
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [isWhoAreYouOpen, setIsWhoAreYouOpen] = useState(false);
+  const [isEditProfileOpen, setIsEditProfileOpen] = useState(false);
+  const [profileToEdit, setProfileToEdit] = useState<FamilyMember | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [snowing, setSnowing] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
@@ -100,8 +104,8 @@ export const App: React.FC = () => {
     setActiveMemberId(newMember.id);
   };
 
-  // Aggiorna membro
-  const handleUpdateMember = async (updated: FamilyMember) => {
+  // Salva aggiornamenti profilo membro
+  const handleSaveProfile = async (updated: FamilyMember) => {
     await saveMember(updated);
     setMembers((prev) => prev.map((m) => (m.id === updated.id ? updated : m)));
   };
@@ -194,7 +198,7 @@ export const App: React.FC = () => {
 
   // Membro correntemente attivo per la visualizzazione
   const currentMember = useMemo(() => {
-    if (selectedMemberId === 'all') return members[0] || null;
+    if (selectedMemberId === 'all') return null;
     return members.find((m) => m.id === selectedMemberId) || null;
   }, [members, selectedMemberId]);
 
@@ -202,6 +206,23 @@ export const App: React.FC = () => {
   const loggedUser = useMemo(() => {
     return members.find((m) => m.id === currentUserId) || null;
   }, [members, currentUserId]);
+
+  // Tema del banner attivo
+  const activeBannerTheme = useMemo(() => {
+    if (currentMember) {
+      return getBannerTheme(currentMember.bannerTheme);
+    }
+    if (loggedUser) {
+      return getBannerTheme(loggedUser.bannerTheme);
+    }
+    return getBannerTheme('red-christmas');
+  }, [currentMember, loggedUser]);
+
+  // Apri personalizzazione per un membro
+  const openEditProfileFor = (member: FamilyMember) => {
+    setProfileToEdit(member);
+    setIsEditProfileOpen(true);
+  };
 
   if (isLoading) {
     return (
@@ -223,9 +244,12 @@ export const App: React.FC = () => {
 
       {/* Navbar Principale */}
       <Navbar
-        currentMember={currentMember}
+        currentMember={currentMember || members[0] || null}
         currentUser={loggedUser}
         onOpenWhoAreYou={() => setIsWhoAreYouOpen(true)}
+        onOpenEditProfile={() => {
+          if (loggedUser) openEditProfileFor(loggedUser);
+        }}
         onOpenAddModal={() => {
           setGiftToEdit(null);
           setIsAddModalOpen(true);
@@ -239,47 +263,90 @@ export const App: React.FC = () => {
 
       {/* Contenuto Principale */}
       <main className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-6 flex-1 w-full space-y-6">
-        {/* Banner Natalizio di Benvenuto */}
-        <section className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-red-800 via-rose-700 to-red-900 text-white p-6 sm:p-8 shadow-xl shadow-red-900/10">
-          <div className="absolute top-0 right-0 -translate-y-4 translate-x-4 w-52 h-52 bg-white/5 rounded-full blur-2xl pointer-events-none" />
-          <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-4">
-            <div className="space-y-2 max-w-xl">
-              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/10 backdrop-blur-md text-xs font-semibold text-red-100 border border-white/10">
+        {/* Banner Natalizio Dinamico Personalizzato */}
+        <section
+          className={`relative overflow-hidden rounded-3xl bg-gradient-to-br ${activeBannerTheme.gradientClass} text-white p-6 sm:p-8 shadow-xl shadow-black/10 transition-all duration-500`}
+        >
+          <div className="absolute top-0 right-0 -translate-y-4 translate-x-4 w-60 h-60 bg-white/10 rounded-full blur-2xl pointer-events-none" />
+          <div className="absolute bottom-0 left-0 translate-y-6 -translate-x-6 w-48 h-48 bg-amber-400/10 rounded-full blur-2xl pointer-events-none" />
+
+          <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
+            <div className="space-y-3 max-w-xl">
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/15 backdrop-blur-md text-xs font-semibold text-white/95 border border-white/20">
                 <Sparkles className="w-3.5 h-3.5 text-amber-300" />
-                {loggedUser ? (
+                {currentMember ? (
+                  <span>Lista Desideri di {currentMember.name} {currentMember.avatar}</span>
+                ) : loggedUser ? (
                   <span>Ciao, {loggedUser.name}! {loggedUser.avatar}</span>
                 ) : (
                   <span>Natale in Famiglia</span>
                 )}
               </div>
-              <h2 className="text-2xl sm:text-3xl font-bold festive-font tracking-wide leading-tight">
-                {loggedUser
-                  ? `${loggedUser.name}, cosa vorresti trovare sotto l'albero?`
-                  : `Cosa vorresti trovare sotto l'albero?`}
-              </h2>
-              <p className="text-sm text-red-100/90 leading-relaxed">
-                Aggiungi qui i tuoi desideri con foto, nome, note e link d'acquisto. Ognuno può compilare la propria lista e vedere quella degli altri!
+
+              <div className="flex items-center gap-3">
+                {currentMember && (
+                  <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl bg-white/20 backdrop-blur-md border border-white/30 flex items-center justify-center text-3xl sm:text-4xl shadow-md shrink-0">
+                    {currentMember.avatar}
+                  </div>
+                )}
+                <div>
+                  <h2 className="text-2xl sm:text-3xl font-extrabold festive-font tracking-wide leading-tight">
+                    {currentMember
+                      ? `I Desideri di ${currentMember.name}`
+                      : loggedUser
+                      ? `${loggedUser.name}, cosa vorresti ricevere?`
+                      : `Cosa vorresti trovare sotto l'albero?`}
+                  </h2>
+                  {currentMember?.bio && (
+                    <p className="text-xs sm:text-sm text-white/90 italic mt-1 font-serif">
+                      "{currentMember.bio}"
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              <p className="text-xs sm:text-sm text-white/85 leading-relaxed">
+                {currentMember
+                  ? `Ecco cosa vorrebbe ricevere ${currentMember.name} per Natale. Puoi aggiungere un link o segnare cosa comprerai per evitare doppioni!`
+                  : `Seleziona il tuo nome o guarda le liste degli altri per organizzare i regali perfetti!`}
               </p>
             </div>
 
-            <div className="flex flex-wrap items-center gap-3">
+            {/* Pulsanti Rapidi Banner */}
+            <div className="flex flex-wrap items-center gap-2.5">
               <button
                 onClick={() => {
                   setGiftToEdit(null);
                   setIsAddModalOpen(true);
                 }}
-                className="px-5 py-3 rounded-2xl bg-white hover:bg-red-50 text-red-700 font-bold text-sm shadow-lg shadow-black/10 transition-all transform hover:scale-105 active:scale-95 flex items-center gap-2"
+                className="px-5 py-3 rounded-2xl bg-white hover:bg-slate-50 text-slate-900 font-bold text-xs sm:text-sm shadow-lg shadow-black/15 transition-all transform hover:scale-105 active:scale-95 flex items-center gap-2"
               >
                 <Plus className="w-4 h-4 text-red-600 stroke-[3]" />
-                <span>Aggiungi un Regalo</span>
+                <span>Aggiungi Regalo</span>
               </button>
+
+              {/* Pulsante Personalizza Profilo */}
+              {(currentMember || loggedUser) && (
+                <button
+                  onClick={() => {
+                    const target = currentMember || loggedUser;
+                    if (target) openEditProfileFor(target);
+                  }}
+                  className="px-4 py-3 rounded-2xl bg-white/15 hover:bg-white/25 border border-white/25 text-white text-xs font-semibold backdrop-blur-sm transition-all flex items-center gap-1.5"
+                  title="Modifica colore del banner, emoji, nome e motto"
+                >
+                  <Palette className="w-4 h-4 text-amber-300" />
+                  <span>Personalizza Profilo</span>
+                </button>
+              )}
 
               <button
                 onClick={() => setIsWhoAreYouOpen(true)}
-                className="px-4 py-3 rounded-2xl bg-red-900/40 hover:bg-red-900/60 border border-red-400/30 text-white text-xs font-semibold backdrop-blur-sm transition-colors flex items-center gap-1.5"
+                className="px-3.5 py-3 rounded-2xl bg-black/20 hover:bg-black/30 border border-white/15 text-white text-xs font-semibold backdrop-blur-sm transition-colors flex items-center gap-1.5"
+                title="Cambia membro della famiglia"
               >
-                <UserCheck className="w-4 h-4 text-amber-300" />
-                <span>{loggedUser ? 'Cambia Profilo' : 'Chi sei?'}</span>
+                <UserCheck className="w-4 h-4 text-white/80" />
+                <span className="hidden sm:inline">Chi sei?</span>
               </button>
             </div>
           </div>
@@ -403,17 +470,19 @@ export const App: React.FC = () => {
             </button>
             <span>•</span>
             <button
-              onClick={() => setIsBackupModalOpen(true)}
-              className="hover:text-red-600 transition-colors"
+              onClick={() => {
+                if (loggedUser) openEditProfileFor(loggedUser);
+              }}
+              className="hover:text-red-600 transition-colors font-medium"
             >
-              Condividi su WhatsApp
+              Personalizza Profilo
             </button>
             <span>•</span>
             <button
               onClick={() => setIsBackupModalOpen(true)}
               className="hover:text-red-600 transition-colors"
             >
-              Backup
+              Condividi su WhatsApp
             </button>
           </div>
         </div>
@@ -427,6 +496,17 @@ export const App: React.FC = () => {
         onExploreAll={handleExploreAll}
         canDismiss={!!currentUserId}
         onClose={() => setIsWhoAreYouOpen(false)}
+      />
+
+      {/* Modale Personalizzazione Profilo */}
+      <EditProfileModal
+        isOpen={isEditProfileOpen}
+        member={profileToEdit}
+        onClose={() => {
+          setIsEditProfileOpen(false);
+          setProfileToEdit(null);
+        }}
+        onSave={handleSaveProfile}
       />
 
       {/* Modale Aggiungi / Modifica Regalo */}
@@ -466,7 +546,7 @@ export const App: React.FC = () => {
         onClose={() => setIsMembersModalOpen(false)}
         members={members}
         giftCounts={giftCounts}
-        onUpdateMember={handleUpdateMember}
+        onUpdateMember={handleSaveProfile}
         onDeleteMember={handleDeleteMember}
       />
     </div>

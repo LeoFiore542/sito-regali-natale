@@ -4,6 +4,9 @@ export interface FamilyMember {
   avatar: string; // Emoji natalizia o iniziale
   color?: string;
   role?: string; // es. Mamma, Papà, Bambino...
+  bannerTheme?: string; // Tema colore del banner
+  bannerPattern?: 'stars' | 'snow' | 'dots' | 'none'; // Pattern di sfondo del banner
+  bio?: string; // Motto natalizio o nota (es: "Babbo Natale stupiscimi!")
   createdAt: number;
 }
 
