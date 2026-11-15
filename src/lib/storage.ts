@@ -175,48 +175,47 @@ export async function loadInitialData(): Promise<{ members: FamilyMember[]; gift
 }
 
 /**
- * Sottoscrizione Real-time:
- * Ogni volta che qualcuno aggiunge un regalo o lo prenota da qualsiasi telefono,
- * la callback viene richiamata istantaneamente.
+ * Sottoscrizione Real-time indipendente per regali e membri:
+ * Evita interferenze e garantisce deduplicazione.
  */
-export function subscribeToFamilyData(
-  onData: (data: { members: FamilyMember[]; gifts: GiftItem[] }) => void
-): () => void {
-  let currentMembers: FamilyMember[] = [...OFFICIAL_FAMILY_MEMBERS];
-  let currentGifts: GiftItem[] = [];
-
-  const unsubMembers = onSnapshot(
-    collection(db, 'members'),
-    (snap) => {
-      if (!snap.empty) {
-        currentMembers = snap.docs.map((d) => d.data() as FamilyMember);
-        currentMembers.sort((a, b) => a.createdAt - b.createdAt);
-      }
-      onData({ members: currentMembers, gifts: currentGifts });
-      updateLocalCache(currentMembers, currentGifts);
-    },
-    (error) => {
-      console.warn('Realtime snapshot members error:', error);
-    }
-  );
-
-  const unsubGifts = onSnapshot(
+export function subscribeToGifts(onGifts: (gifts: GiftItem[]) => void): () => void {
+  return onSnapshot(
     collection(db, 'gifts'),
     (snap) => {
-      currentGifts = snap.docs.map((d) => d.data() as GiftItem);
-      currentGifts.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
-      onData({ members: currentMembers, gifts: currentGifts });
-      updateLocalCache(currentMembers, currentGifts);
+      const map = new Map<string, GiftItem>();
+      snap.docs.forEach((d) => {
+        const item = d.data() as GiftItem;
+        map.set(item.id, item);
+      });
+      const list = Array.from(map.values());
+      list.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+      onGifts(list);
     },
     (error) => {
       console.warn('Realtime snapshot gifts error:', error);
     }
   );
+}
 
-  return () => {
-    unsubMembers();
-    unsubGifts();
-  };
+export function subscribeToMembers(onMembers: (members: FamilyMember[]) => void): () => void {
+  return onSnapshot(
+    collection(db, 'members'),
+    (snap) => {
+      if (!snap.empty) {
+        const map = new Map<string, FamilyMember>();
+        snap.docs.forEach((d) => {
+          const item = d.data() as FamilyMember;
+          map.set(item.id, item);
+        });
+        const list = Array.from(map.values());
+        list.sort((a, b) => a.createdAt - b.createdAt);
+        onMembers(list);
+      }
+    },
+    (error) => {
+      console.warn('Realtime snapshot members error:', error);
+    }
+  );
 }
 
 export async function saveMember(member: FamilyMember): Promise<void> {

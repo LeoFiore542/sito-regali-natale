@@ -2,7 +2,8 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { FamilyMember, GiftItem } from './types';
 import {
   loadInitialData,
-  subscribeToFamilyData,
+  subscribeToGifts,
+  subscribeToMembers,
   saveMember,
   deleteMember as removeMemberStorage,
   saveGift,
@@ -73,16 +74,20 @@ export const App: React.FC = () => {
       setIsLoading(false);
     });
 
-    // Ascolto in tempo reale da Firestore: qualsiasi modifica su un dispositivo si riflette su tutti!
-    const unsubscribe = subscribeToFamilyData(({ members: updatedMembers, gifts: updatedGifts }) => {
-      if (updatedMembers.length > 0) {
-        setMembers(updatedMembers);
-      }
+    // Ascolto in tempo reale da Firestore per aggiornamenti istantanei tra telefoni
+    const unsubGifts = subscribeToGifts((updatedGifts) => {
       setGifts(updatedGifts);
       setIsLoading(false);
     });
 
-    return () => unsubscribe();
+    const unsubMembers = subscribeToMembers((updatedMembers) => {
+      setMembers(updatedMembers);
+    });
+
+    return () => {
+      unsubGifts();
+      unsubMembers();
+    };
   }, []);
 
   // Selezione permanente e definitiva di chi sei
@@ -100,11 +105,15 @@ export const App: React.FC = () => {
     setActiveMemberId(id === 'all' ? null : id);
   };
 
-  // Conteggio regali per membro
+  // Conteggio regali per membro (con deduplicazione sicura)
   const giftCounts = useMemo(() => {
     const counts: Record<string, number> = {};
+    const seen = new Set<string>();
     gifts.forEach((g) => {
-      counts[g.memberId] = (counts[g.memberId] || 0) + 1;
+      if (!seen.has(g.id)) {
+        seen.add(g.id);
+        counts[g.memberId] = (counts[g.memberId] || 0) + 1;
+      }
     });
     return counts;
   }, [gifts]);
@@ -146,7 +155,10 @@ export const App: React.FC = () => {
         createdAt: Date.now(),
       };
       await saveGift(newGift);
-      setGifts((prev) => [newGift, ...prev]);
+      setGifts((prev) => {
+        if (prev.some((g) => g.id === newGift.id)) return prev;
+        return [newGift, ...prev];
+      });
     }
   };
 
@@ -228,9 +240,13 @@ export const App: React.FC = () => {
     alert('Database ripristinato ai 10 membri ufficiali di famiglia.');
   };
 
-  // Filtra regali
+  // Filtra regali (con deduplicazione sicura per ID)
   const filteredGifts = useMemo(() => {
+    const seen = new Set<string>();
     return gifts.filter((gift) => {
+      if (seen.has(gift.id)) return false;
+      seen.add(gift.id);
+
       if (selectedMemberId !== 'all' && gift.memberId !== selectedMemberId) {
         return false;
       }

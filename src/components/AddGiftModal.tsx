@@ -25,6 +25,7 @@ export const AddGiftModal: React.FC<AddGiftModalProps> = ({
   const [imageUrl, setImageUrl] = useState('');
   const [imageMode, setImageMode] = useState<'upload' | 'url'>('upload');
   const [isUploading, setIsUploading] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [uploadError, setUploadError] = useState('');
 
   // Rilevamento automatico prezzo dal link di acquisto
@@ -146,33 +147,38 @@ export const AddGiftModal: React.FC<AddGiftModalProps> = ({
     reader.readAsDataURL(file);
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!title.trim() || !initialMemberId) return;
+    if (isSubmitting || !title.trim() || !initialMemberId) return;
 
-    let cleanLink = link.trim();
-    if (cleanLink && !cleanLink.startsWith('http://') && !cleanLink.startsWith('https://')) {
-      cleanLink = `https://${cleanLink}`;
+    setIsSubmitting(true);
+    try {
+      let cleanLink = link.trim();
+      if (cleanLink && !cleanLink.startsWith('http://') && !cleanLink.startsWith('https://')) {
+        cleanLink = `https://${cleanLink}`;
+      }
+
+      await onSave({
+        memberId: initialMemberId,
+        title: title.trim(),
+        description: description.trim() || undefined,
+        link: cleanLink || undefined,
+        imageUrl: imageUrl.trim() || undefined,
+        price: detectedPrice || undefined,
+        storeName: detectedStore || (cleanLink ? detectStoreName(cleanLink) || undefined : undefined),
+      });
+
+      confetti({
+        particleCount: 40,
+        spread: 60,
+        origin: { y: 0.7 },
+        colors: ['#dc2626', '#16a34a', '#eab308', '#ffffff'],
+      });
+
+      onClose();
+    } finally {
+      setIsSubmitting(false);
     }
-
-    onSave({
-      memberId: initialMemberId,
-      title: title.trim(),
-      description: description.trim() || undefined,
-      link: cleanLink || undefined,
-      imageUrl: imageUrl.trim() || undefined,
-      price: detectedPrice || undefined,
-      storeName: detectedStore || (cleanLink ? detectStoreName(cleanLink) || undefined : undefined),
-    });
-
-    confetti({
-      particleCount: 40,
-      spread: 60,
-      origin: { y: 0.7 },
-      colors: ['#dc2626', '#16a34a', '#eab308', '#ffffff'],
-    });
-
-    onClose();
   };
 
   return (
@@ -416,10 +422,20 @@ export const AddGiftModal: React.FC<AddGiftModalProps> = ({
             </button>
             <button
               type="submit"
-              className="px-5 py-2.5 rounded-xl text-xs sm:text-sm font-semibold text-white bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-700 hover:to-rose-700 shadow-md shadow-red-200 transition-all flex items-center gap-1.5 transform active:scale-95"
+              disabled={isSubmitting || !title.trim()}
+              className="px-5 py-2.5 rounded-xl text-xs sm:text-sm font-semibold text-white bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-700 hover:to-rose-700 shadow-md shadow-red-200 transition-all flex items-center gap-1.5 transform active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              <Sparkles className="w-4 h-4" />
-              <span>{giftToEdit ? 'Aggiorna Regalo' : 'Aggiungi alla Lista'}</span>
+              {isSubmitting ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  <span>Salvataggio...</span>
+                </>
+              ) : (
+                <>
+                  <Sparkles className="w-4 h-4" />
+                  <span>{giftToEdit ? 'Aggiorna Regalo' : 'Aggiungi alla Lista'}</span>
+                </>
+              )}
             </button>
           </div>
         </form>
