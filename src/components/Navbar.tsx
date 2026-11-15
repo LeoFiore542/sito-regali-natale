@@ -30,112 +30,116 @@ export const Navbar: React.FC<NavbarProps> = ({
   totalGiftsCount,
 }) => {
   return (
-    <header className="sticky top-0 z-40 bg-white/90 backdrop-blur-md border-b border-red-100 shadow-sm">
-      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between h-16 sm:h-20">
-          {/* Logo e Titolo */}
-          <div className="flex items-center space-x-3">
-            <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-2xl bg-gradient-to-tr from-red-600 to-rose-500 text-white flex items-center justify-center shadow-lg shadow-red-200">
-              <Gift className="w-5 h-5 sm:w-6 sm:h-6" />
-            </div>
-            <div>
-              <div className="flex items-center space-x-2">
-                <h1 className="text-lg sm:text-xl font-bold tracking-tight text-slate-900 festive-font flex items-center gap-1.5">
-                  Lista di Natale
-                  <span className="text-red-600">🎄</span>
-                </h1>
-                <span className="hidden sm:inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-red-50 text-red-700 border border-red-200">
-                  {totalGiftsCount} {totalGiftsCount === 1 ? 'desiderio' : 'desideri'}
-                </span>
+    <>
+      <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-red-100/80 shadow-xs">
+        <div className="max-w-6xl mx-auto px-3 sm:px-6 lg:px-8">
+          <div className="flex items-center justify-between h-14 sm:h-20">
+            {/* Logo e Titolo */}
+            <div className="flex items-center space-x-2.5 min-w-0">
+              <div className="w-8 h-8 sm:w-11 sm:h-11 rounded-xl sm:rounded-2xl bg-gradient-to-tr from-red-600 to-rose-500 text-white flex items-center justify-center shadow-md shadow-red-200 shrink-0">
+                <Gift className="w-4 h-4 sm:w-5 sm:h-5" />
               </div>
-              <p className="text-xs text-slate-500 hidden sm:block">
-                Condividi i desideri con tutta la famiglia
-              </p>
-            </div>
-          </div>
-
-          {/* Azioni Principali */}
-          <div className="flex items-center space-x-2 sm:space-x-2.5">
-            {/* Pulsante Admin ESCLUSIVO per Leo */}
-            {isAdmin && onOpenAdmin && (
-              <button
-                onClick={onOpenAdmin}
-                title="Pannello Amministrazione (Solo Leo)"
-                className="flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold shadow-md shadow-amber-200 transition-all transform active:scale-95"
-              >
-                <Crown className="w-3.5 h-3.5" />
-                <span className="hidden sm:inline">Admin Leo</span>
-              </button>
-            )}
-
-            {/* Profilo Utente Fisso & Personalizza */}
-            {currentUser && (
-              <div className="flex items-center bg-rose-50 border border-rose-200/80 rounded-2xl p-1 shadow-sm">
-                <div className="flex items-center gap-1.5 px-2.5 py-1 text-xs font-bold text-rose-950">
-                  <span className="text-base">{currentUser.avatar}</span>
-                  <span className="hidden sm:inline">{currentUser.name}</span>
+              <div className="min-w-0">
+                <div className="flex items-center gap-1.5">
+                  <h1 className="text-base sm:text-xl font-bold tracking-tight text-slate-900 festive-font truncate flex items-center gap-1">
+                    <span>Lista di Natale</span>
+                    <span className="text-red-600 text-sm sm:text-base">🎄</span>
+                  </h1>
+                  <span className="inline-flex items-center px-1.5 sm:px-2 py-0.5 rounded-full text-[10px] sm:text-xs font-semibold bg-red-50 text-red-700 border border-red-200 shrink-0">
+                    {totalGiftsCount}
+                  </span>
                 </div>
-                <div className="w-px h-4 bg-rose-200 mx-0.5" />
+                <p className="text-[11px] text-slate-500 hidden md:block">
+                  I desideri di tutta la famiglia
+                </p>
+              </div>
+            </div>
+
+            {/* Azioni Navbar Desktop & Mobile */}
+            <div className="flex items-center space-x-1.5 sm:space-x-2.5 shrink-0">
+              {/* Badge Admin Leo (se Admin) */}
+              {isAdmin && onOpenAdmin && (
+                <button
+                  onClick={onOpenAdmin}
+                  title="Pannello Amministrazione (Solo Leo)"
+                  className="flex items-center gap-1 px-2 sm:px-2.5 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold shadow-xs transition-transform active:scale-95"
+                >
+                  <Crown className="w-3.5 h-3.5" />
+                  <span className="hidden sm:inline">Admin</span>
+                </button>
+              )}
+
+              {/* Profilo & Personalizza (Tap diretto per personalizzare) */}
+              {currentUser && (
                 <button
                   onClick={onOpenEditProfile}
-                  title="Personalizza colore banner, emoji e motto"
-                  className="p-1 sm:px-2 sm:py-1 rounded-xl text-rose-700 hover:bg-rose-100/70 text-xs font-semibold transition-colors flex items-center gap-1"
+                  title="Tocca per personalizzare emoji, banner e motto"
+                  className="flex items-center gap-1 sm:gap-1.5 px-2 sm:px-2.5 py-1.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-950 text-xs font-semibold hover:bg-rose-100 transition-colors"
                 >
-                  <Palette className="w-3.5 h-3.5" />
-                  <span className="hidden md:inline">Personalizza</span>
+                  <span className="text-sm sm:text-base">{currentUser.avatar}</span>
+                  <span className="max-w-[70px] sm:max-w-none truncate">{currentUser.name}</span>
+                  <Palette className="w-3 h-3 text-rose-500 hidden sm:inline" />
                 </button>
-              </div>
-            )}
+              )}
 
-            {/* Toggle Fiocchi di Neve */}
-            <button
-              onClick={toggleSnow}
-              title={snowing ? 'Disattiva fiocchi di neve' : 'Attiva fiocchi di neve'}
-              className={`p-2 rounded-xl transition-colors border ${
-                snowing
-                  ? 'bg-blue-50 border-blue-200 text-blue-600'
-                  : 'bg-slate-50 border-slate-200 text-slate-500 hover:bg-slate-100'
-              }`}
-            >
-              <Sparkles className="w-4 h-4 sm:w-5 sm:h-5" />
-            </button>
+              {/* Toggle Fiocchi di Neve */}
+              <button
+                onClick={toggleSnow}
+                title={snowing ? 'Disattiva neve' : 'Attiva neve'}
+                className={`p-1.5 sm:p-2 rounded-xl border transition-colors ${
+                  snowing
+                    ? 'bg-blue-50 border-blue-200 text-blue-600'
+                    : 'bg-slate-50 border-slate-200 text-slate-400'
+                }`}
+              >
+                <Sparkles className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+              </button>
 
-            {/* Visualizza Membri Famiglia */}
-            <button
-              onClick={onOpenMembersModal}
-              title="Vedi membri della famiglia"
-              className="p-2 sm:px-2.5 sm:py-2 rounded-xl border border-slate-200 text-slate-700 hover:bg-slate-50 flex items-center space-x-1 text-xs sm:text-sm font-medium transition-colors"
-            >
-              <Users className="w-4 h-4 text-emerald-700" />
-              <span className="hidden lg:inline">Famiglia</span>
-            </button>
+              {/* Membri Famiglia (visibile sempre con icona) */}
+              <button
+                onClick={onOpenMembersModal}
+                title="Vedi membri della famiglia"
+                className="p-1.5 sm:px-2.5 sm:py-2 rounded-xl border border-slate-200 text-slate-700 hover:bg-slate-50 flex items-center space-x-1 text-xs font-medium transition-colors"
+              >
+                <Users className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-emerald-700" />
+                <span className="hidden sm:inline">Famiglia</span>
+              </button>
 
-            {/* Condivisione & Backup */}
-            <button
-              onClick={onOpenBackupModal}
-              title="Condividi o salva lista"
-              className="p-2 sm:px-2.5 sm:py-2 rounded-xl border border-slate-200 text-slate-700 hover:bg-slate-50 flex items-center space-x-1 text-xs sm:text-sm font-medium transition-colors"
-            >
-              <Share2 className="w-4 h-4 text-amber-600" />
-              <span className="hidden lg:inline">Condividi</span>
-            </button>
+              {/* Condividi */}
+              <button
+                onClick={onOpenBackupModal}
+                title="Condividi su WhatsApp o salva backup"
+                className="p-1.5 sm:px-2.5 sm:py-2 rounded-xl border border-slate-200 text-slate-700 hover:bg-slate-50 flex items-center space-x-1 text-xs font-medium transition-colors"
+              >
+                <Share2 className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-amber-600" />
+                <span className="hidden sm:inline">Condividi</span>
+              </button>
 
-            {/* Bottone Aggiungi Regalo */}
-            <button
-              onClick={onOpenAddModal}
-              disabled={!currentMember}
-              className={`flex items-center space-x-1 sm:space-x-1.5 px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl text-white font-medium shadow-md transition-all transform active:scale-95 text-xs sm:text-sm ${
-                currentMember
-                  ? 'bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-700 hover:to-rose-700 shadow-red-200 hover:shadow-lg'
-                  : 'bg-slate-300 cursor-not-allowed opacity-60'
-              }`}
-            >
-              <Plus className="w-4 h-4 sm:w-5 sm:h-5" />
-              <span>Aggiungi Regalo</span>
-            </button>
+              {/* Bottone Aggiungi Regalo (Desktop) */}
+              <button
+                onClick={onOpenAddModal}
+                disabled={!currentMember}
+                className="hidden sm:flex items-center space-x-1.5 px-3.5 py-2 rounded-xl text-white font-medium shadow-md shadow-red-200 bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-700 hover:to-rose-700 transition-all text-xs sm:text-sm active:scale-95"
+              >
+                <Plus className="w-4 h-4" />
+                <span>Aggiungi Regalo</span>
+              </button>
+            </div>
           </div>
         </div>
+      </header>
+
+      {/* Floating Action Button fisso in basso a destra su Mobile per aggiungere regali con il pollice */}
+      <div className="fixed sm:hidden bottom-5 right-4 z-40">
+        <button
+          onClick={onOpenAddModal}
+          disabled={!currentMember}
+          className="flex items-center gap-2 px-4 py-3 rounded-full text-white font-bold text-sm bg-gradient-to-r from-red-600 to-rose-600 shadow-xl shadow-red-900/30 active:scale-90 transition-transform border-2 border-white"
+        >
+          <Plus className="w-5 h-5 stroke-[3]" />
+          <span>Nuovo Regalo</span>
+        </button>
       </div>
-    </header>
+    </>
   );
 };

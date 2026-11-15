@@ -84,10 +84,10 @@ export const BackupModal: React.FC<BackupModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
-      <div className="relative w-full max-w-lg bg-white rounded-3xl shadow-2xl border border-red-100 overflow-hidden my-8 animate-in fade-in zoom-in-95 duration-200">
+    <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4">
+      <div className="relative w-full max-w-lg bg-white rounded-3xl shadow-2xl border border-red-100 overflow-hidden my-auto max-h-[92dvh] flex flex-col animate-in fade-in zoom-in-95 duration-200">
         {/* Header */}
-        <div className="bg-gradient-to-r from-red-700 via-rose-700 to-amber-700 px-6 py-5 text-white flex items-center justify-between">
+        <div className="bg-gradient-to-r from-red-700 via-rose-700 to-amber-700 px-5 sm:px-6 py-4 sm:py-5 text-white flex items-center justify-between shrink-0">
           <div className="flex items-center space-x-2.5">
             <div className="w-9 h-9 rounded-xl bg-white/15 backdrop-blur-md flex items-center justify-center text-lg">
               📲
@@ -110,7 +110,7 @@ export const BackupModal: React.FC<BackupModalProps> = ({
         </div>
 
         {/* Content */}
-        <div className="p-6 space-y-5">
+        <div className="p-5 sm:p-6 space-y-4 sm:space-y-5 overflow-y-auto flex-1 no-scrollbar">
           {/* Opzione 1: Copia su WhatsApp */}
           <div className="p-4 rounded-2xl bg-emerald-50 border border-emerald-200">
             <div className="flex items-start justify-between">

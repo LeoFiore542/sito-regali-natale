@@ -3,43 +3,66 @@
 @tailwind utilities;
 
 @layer base {
+  html {
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+  }
+
   body {
     font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+    padding-top: env(safe-area-inset-top, 0);
+    padding-bottom: env(safe-area-inset-bottom, 0);
   }
 
   h1, h2, h3, .festive-font {
     font-family: 'Playfair Display', Georgia, serif;
   }
+
+  /* Previene lo zoom automatico fastidioso di Safari su iOS mantenendo 16px minimo su mobile */
+  input[type="text"],
+  input[type="url"],
+  input[type="search"],
+  textarea,
+  select {
+    font-size: 16px;
+  }
+  @media (min-width: 640px) {
+    input[type="text"],
+    input[type="url"],
+    input[type="search"],
+    textarea,
+    select {
+      font-size: 0.875rem; /* 14px */
+    }
+  }
 }
 
-/* Decorazioni natalizie delicate */
-.christmas-gradient-header {
-  background: linear-gradient(135deg, #991b1b 0%, #b91c1c 45%, #7f1d1d 100%);
+/* Scrollbar orizzontale fluida e invisibile su mobile */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
 }
-
-.christmas-card-pattern {
-  background-color: #ffffff;
-  background-image: radial-gradient(#dc2626 0.45px, transparent 0.45px), radial-gradient(#16a34a 0.45px, #ffffff 0.45px);
-  background-size: 18px 18px;
-  background-position: 0 0, 9px 9px;
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
 }
 
 /* Animazione fiocco di neve cadente */
 @keyframes snowfall {
   0% {
     transform: translateY(-10px) rotate(0deg);
-    opacity: 0.9;
+    opacity: 0.8;
   }
   100% {
     transform: translateY(100vh) rotate(360deg);
-    opacity: 0.2;
+    opacity: 0.15;
   }
 }
 
 .snow-flake {
   position: fixed;
   top: -20px;
-  color: #e2e8f0;
+  color: #cbd5e1;
   pointer-events: none;
   z-index: 1;
   user-select: none;

@@ -48,11 +48,11 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
   const reservedGifts = gifts.filter((g) => !!g.reservedBy);
 
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4">
-      <div className="relative w-full max-w-xl bg-white rounded-3xl shadow-2xl border-2 border-amber-300 overflow-hidden my-6 animate-in fade-in zoom-in-95 duration-200">
+    <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-3 sm:p-4">
+      <div className="relative w-full max-w-xl bg-white rounded-3xl shadow-2xl border-2 border-amber-300 overflow-hidden my-auto max-h-[92dvh] flex flex-col animate-in fade-in zoom-in-95 duration-200">
         
         {/* Header Admin */}
-        <div className="bg-gradient-to-r from-amber-600 via-yellow-600 to-amber-700 px-6 py-5 text-white flex items-center justify-between shadow-md">
+        <div className="bg-gradient-to-r from-amber-600 via-yellow-600 to-amber-700 px-5 sm:px-6 py-4 sm:py-5 text-white flex items-center justify-between shadow-md shrink-0">
           <div className="flex items-center space-x-2.5">
             <div className="w-10 h-10 rounded-2xl bg-white/20 backdrop-blur-md flex items-center justify-center text-xl shadow-inner">
               👑

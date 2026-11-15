@@ -32,30 +32,31 @@ export const MemberSelector: React.FC<MemberSelectorProps> = ({
   };
 
   return (
-    <div className="py-4">
-      <div className="flex items-center justify-between mb-3 px-1">
-        <h2 className="text-sm font-semibold uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
+    <div className="py-2 sm:py-3">
+      <div className="flex items-center justify-between mb-2 px-1">
+        <h2 className="text-xs sm:text-sm font-bold uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
           <span>Liste di Famiglia</span>
-          <span className="text-xs normal-case font-normal text-slate-400">
-            (Seleziona chi sta compilando o guardando la lista)
-          </span>
         </h2>
+        <span className="text-[11px] text-slate-400">
+          Scorri a destra ➡️
+        </span>
       </div>
 
-      <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-none">
+      {/* Lista orizzontale scorrevole con tocco fluido */}
+      <div className="flex items-center gap-2 overflow-x-auto no-scrollbar pb-2.5 pt-1 -mx-3 px-3 sm:mx-0 sm:px-0">
         {/* Pulsante "Tutti" */}
         <button
           onClick={() => onSelectMember('all')}
-          className={`flex items-center gap-2.5 px-4 py-2.5 rounded-2xl font-medium text-sm transition-all whitespace-nowrap shadow-sm border ${
+          className={`flex items-center gap-2 px-3.5 sm:px-4 py-2 sm:py-2.5 rounded-2xl font-semibold text-xs sm:text-sm transition-all whitespace-nowrap shadow-xs border shrink-0 active:scale-95 ${
             selectedMemberId === 'all'
-              ? 'bg-slate-900 text-white border-slate-900 shadow-slate-200 ring-2 ring-slate-900/10'
-              : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50 hover:border-slate-300'
+              ? 'bg-slate-900 text-white border-slate-900 shadow-slate-200'
+              : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
           }`}
         >
-          <span className="text-base">✨</span>
-          <span>Tutti i Desideri</span>
+          <span className="text-sm sm:text-base">✨</span>
+          <span>Tutti</span>
           <span
-            className={`text-xs px-2 py-0.5 rounded-full ${
+            className={`text-[10px] sm:text-xs px-1.5 py-0.5 rounded-full ${
               selectedMemberId === 'all'
                 ? 'bg-white/20 text-white'
                 : 'bg-slate-100 text-slate-600'
@@ -74,16 +75,16 @@ export const MemberSelector: React.FC<MemberSelectorProps> = ({
             <button
               key={member.id}
               onClick={() => onSelectMember(member.id)}
-              className={`flex items-center gap-2.5 px-4 py-2.5 rounded-2xl font-medium text-sm transition-all whitespace-nowrap shadow-sm border ${
+              className={`flex items-center gap-2 px-3.5 sm:px-4 py-2 sm:py-2.5 rounded-2xl font-semibold text-xs sm:text-sm transition-all whitespace-nowrap shadow-xs border shrink-0 active:scale-95 ${
                 isSelected
-                  ? 'bg-gradient-to-r from-red-600 to-rose-600 text-white border-red-600 shadow-red-200 ring-2 ring-red-500/20'
-                  : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50 hover:border-slate-300'
+                  ? 'bg-gradient-to-r from-red-600 to-rose-600 text-white border-red-600 shadow-red-200'
+                  : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
               }`}
             >
-              <span className="text-lg leading-none">{member.avatar}</span>
+              <span className="text-base sm:text-lg leading-none">{member.avatar}</span>
               <span>{member.name}</span>
               <span
-                className={`text-xs px-2 py-0.5 rounded-full ${
+                className={`text-[10px] sm:text-xs px-1.5 py-0.5 rounded-full font-bold ${
                   isSelected
                     ? 'bg-white/20 text-white'
                     : 'bg-red-50 text-red-600'
@@ -98,18 +99,18 @@ export const MemberSelector: React.FC<MemberSelectorProps> = ({
         {/* Pulsante Aggiungi Membro */}
         <button
           onClick={() => setIsAdding(true)}
-          className="flex items-center gap-1.5 px-3.5 py-2.5 rounded-2xl font-medium text-sm text-emerald-800 bg-emerald-50 border border-emerald-200 hover:bg-emerald-100 transition-colors whitespace-nowrap shadow-sm"
+          className="flex items-center gap-1.5 px-3 py-2 sm:py-2.5 rounded-2xl font-semibold text-xs sm:text-sm text-emerald-800 bg-emerald-50 border border-emerald-200 hover:bg-emerald-100 transition-colors whitespace-nowrap shadow-xs shrink-0 active:scale-95"
         >
           <Plus className="w-4 h-4 text-emerald-700" />
-          <span>Nuovo Membro</span>
+          <span>Nuovo</span>
         </button>
       </div>
 
       {/* Mini-modal inline per aggiungere un membro velocemente */}
       {isAdding && (
-        <div className="mt-3 p-4 bg-white rounded-2xl border border-emerald-100 shadow-lg animate-in fade-in slide-in-from-top-2">
+        <div className="mt-2.5 p-4 bg-white rounded-2xl border border-emerald-200 shadow-lg animate-in fade-in slide-in-from-top-2">
           <div className="flex items-center justify-between mb-3">
-            <h3 className="text-sm font-semibold text-slate-800 flex items-center gap-1.5">
+            <h3 className="text-xs sm:text-sm font-bold text-slate-800 flex items-center gap-1.5">
               <Sparkles className="w-4 h-4 text-amber-500" />
               Aggiungi qualcuno alla famiglia
             </h3>
@@ -159,17 +160,17 @@ export const MemberSelector: React.FC<MemberSelectorProps> = ({
               </div>
             </div>
 
-            <div className="flex justify-end gap-2 pt-2">
+            <div className="flex justify-end gap-2 pt-1">
               <button
                 type="button"
                 onClick={() => setIsAdding(false)}
-                className="px-3.5 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-100 rounded-lg transition-colors"
+                className="px-3.5 py-2 text-xs font-medium text-slate-600 hover:bg-slate-100 rounded-xl transition-colors"
               >
                 Annulla
               </button>
               <button
                 type="submit"
-                className="px-4 py-1.5 text-xs font-medium text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg shadow-sm transition-colors flex items-center gap-1.5"
+                className="px-4 py-2 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 rounded-xl shadow-xs transition-colors flex items-center gap-1.5"
               >
                 <UserCheck className="w-3.5 h-3.5" />
                 Salva Membro
