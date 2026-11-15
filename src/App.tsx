@@ -99,19 +99,6 @@ export const App: React.FC = () => {
     return counts;
   }, [gifts]);
 
-  // Aggiungi nuovo membro
-  const handleAddMember = async (name: string, avatar: string) => {
-    const newMember: FamilyMember = {
-      id: `member-${Date.now()}`,
-      name,
-      avatar,
-      createdAt: Date.now(),
-    };
-    await saveMember(newMember);
-    setMembers((prev) => [...prev, newMember]);
-    setSelectedMemberId(newMember.id);
-  };
-
   // Salva aggiornamenti profilo membro (emoji, banner, bio)
   const handleSaveProfile = async (updated: FamilyMember) => {
     await saveMember(updated);
@@ -408,7 +395,6 @@ export const App: React.FC = () => {
           members={members}
           selectedMemberId={selectedMemberId}
           onSelectMember={handleSelectMember}
-          onAddMember={handleAddMember}
           giftCounts={giftCounts}
         />
 
