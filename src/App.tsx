@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { FamilyMember, GiftItem } from './types';
 import {
   loadInitialData,
+  subscribeToFamilyData,
   saveMember,
   deleteMember as removeMemberStorage,
   saveGift,
@@ -53,13 +54,13 @@ export const App: React.FC = () => {
       window.history.replaceState({}, document.title, window.location.pathname);
     }
 
-    loadInitialData().then(({ members, gifts }) => {
-      setMembers(members);
-      setGifts(gifts);
+    loadInitialData().then(({ members: initialMembers, gifts: initialGifts }) => {
+      setMembers(initialMembers);
+      setGifts(initialGifts);
 
       const savedUser = hasResetParam ? null : localStorage.getItem(CURRENT_USER_KEY);
 
-      if (savedUser && members.some((m) => m.id === savedUser)) {
+      if (savedUser && initialMembers.some((m) => m.id === savedUser)) {
         setCurrentUserId(savedUser);
         setSelectedMemberId(savedUser);
         setIsWhoAreYouOpen(false);
@@ -71,6 +72,17 @@ export const App: React.FC = () => {
 
       setIsLoading(false);
     });
+
+    // Ascolto in tempo reale da Firestore: qualsiasi modifica su un dispositivo si riflette su tutti!
+    const unsubscribe = subscribeToFamilyData(({ members: updatedMembers, gifts: updatedGifts }) => {
+      if (updatedMembers.length > 0) {
+        setMembers(updatedMembers);
+      }
+      setGifts(updatedGifts);
+      setIsLoading(false);
+    });
+
+    return () => unsubscribe();
   }, []);
 
   // Selezione permanente e definitiva di chi sei

@@ -1,3 +1,13 @@
+import {
+  collection,
+  doc,
+  setDoc,
+  deleteDoc,
+  onSnapshot,
+  getDocs,
+  writeBatch
+} from 'firebase/firestore';
+import { db } from './firebase';
 import { FamilyMember, GiftItem } from '../types';
 
 const DB_NAME = 'NataleRegaliDB';
@@ -5,57 +15,6 @@ const DB_VERSION = 1;
 const STORE_MEMBERS = 'members';
 const STORE_GIFTS = 'gifts';
 const LOCAL_STORAGE_ACTIVE_USER = 'natale_active_member_id';
-
-// Inizializza IndexedDB nativo (supporta megabyte di immagini Base64 senza limiti)
-function openDB(): Promise<IDBDatabase> {
-  return new Promise((resolve, reject) => {
-    if (!('indexedDB' in window)) {
-      reject(new Error('IndexedDB non supportato'));
-      return;
-    }
-    const request = indexedDB.open(DB_NAME, DB_VERSION);
-
-    request.onupgradeneeded = (event: IDBVersionChangeEvent) => {
-      const db = (event.target as IDBOpenDBRequest).result;
-      if (!db.objectStoreNames.contains(STORE_MEMBERS)) {
-        db.createObjectStore(STORE_MEMBERS, { keyPath: 'id' });
-      }
-      if (!db.objectStoreNames.contains(STORE_GIFTS)) {
-        const giftStore = db.createObjectStore(STORE_GIFTS, { keyPath: 'id' });
-        giftStore.createIndex('memberId', 'memberId', { unique: false });
-      }
-    };
-
-    request.onsuccess = () => resolve(request.result);
-    request.onerror = () => reject(request.error);
-  });
-}
-
-// Fallback su localStorage se IndexedDB fallisce
-const localStorageFallback = {
-  getMembers(): FamilyMember[] {
-    try {
-      const raw = localStorage.getItem('natale_members');
-      return raw ? JSON.parse(raw) : [];
-    } catch {
-      return [];
-    }
-  },
-  saveMembers(members: FamilyMember[]) {
-    localStorage.setItem('natale_members', JSON.stringify(members));
-  },
-  getGifts(): GiftItem[] {
-    try {
-      const raw = localStorage.getItem('natale_gifts');
-      return raw ? JSON.parse(raw) : [];
-    } catch {
-      return [];
-    }
-  },
-  saveGifts(gifts: GiftItem[]) {
-    localStorage.setItem('natale_gifts', JSON.stringify(gifts));
-  }
-};
 
 export const OFFICIAL_FAMILY_MEMBERS: FamilyMember[] = [
   { id: 'leo', name: 'Leo', avatar: '🎄', createdAt: 1 },
@@ -70,145 +29,229 @@ export const OFFICIAL_FAMILY_MEMBERS: FamilyMember[] = [
   { id: 'giuliana', name: 'Giuliana', avatar: '🍪', createdAt: 10 },
 ];
 
-export async function loadInitialData(): Promise<{ members: FamilyMember[]; gifts: GiftItem[] }> {
-  try {
-    const db = await openDB();
-    let members = await new Promise<FamilyMember[]>((resolve, reject) => {
-      const tx = db.transaction(STORE_MEMBERS, 'readonly');
-      const store = tx.objectStore(STORE_MEMBERS);
-      const req = store.getAll();
-      req.onsuccess = () => resolve(req.result || []);
-      req.onerror = () => reject(req.error);
-    });
-
-    let gifts = await new Promise<GiftItem[]>((resolve, reject) => {
-      const tx = db.transaction(STORE_GIFTS, 'readonly');
-      const store = tx.objectStore(STORE_GIFTS);
-      const req = store.getAll();
-      req.onsuccess = () => resolve(req.result || []);
-      req.onerror = () => reject(req.error);
-    });
-
-    const isMigrated = localStorage.getItem('natale_family_v2_migrated') === 'true';
-
-    // Se non sono ancora stati caricati i membri della famiglia o se c'erano i vecchi dati finti
-    const hasOldDummies = members.some((m) => m.name === 'Mamma' || m.name === 'Papà' || m.name === 'Io');
-
-    if (members.length === 0 || !isMigrated || hasOldDummies) {
-      const tx = db.transaction([STORE_MEMBERS, STORE_GIFTS], 'readwrite');
-      const mStore = tx.objectStore(STORE_MEMBERS);
-      const gStore = tx.objectStore(STORE_GIFTS);
-
-      // Pulisci vecchi membri demo
-      mStore.clear();
-      // Se c'erano solo i regali finti demo (g-1, g-2, g-3), ripuliscili
-      const userGifts = gifts.filter((g) => !['g-1', 'g-2', 'g-3'].includes(g.id));
-      gStore.clear();
-
-      for (const m of OFFICIAL_FAMILY_MEMBERS) {
-        mStore.put(m);
-      }
-      for (const g of userGifts) {
-        gStore.put(g);
-      }
-
-      await new Promise<void>((resolve) => {
-        tx.oncomplete = () => resolve();
-      });
-
-      localStorage.setItem('natale_family_v2_migrated', 'true');
-      members = OFFICIAL_FAMILY_MEMBERS;
-      gifts = userGifts;
-      return { members, gifts };
+// Helper per rimuovere i campi 'undefined' che causerebbero errore in Firestore
+function sanitizeForFirestore<T extends Record<string, any>>(obj: T): Record<string, any> {
+  const clean: Record<string, any> = {};
+  for (const [key, value] of Object.entries(obj)) {
+    if (value !== undefined) {
+      clean[key] = value;
     }
+  }
+  return clean;
+}
+
+// Inizializza IndexedDB locale (mantenuto per cache/backup)
+function openDB(): Promise<IDBDatabase> {
+  return new Promise((resolve, reject) => {
+    if (!('indexedDB' in window)) {
+      reject(new Error('IndexedDB non supportato'));
+      return;
+    }
+    const request = indexedDB.open(DB_NAME, DB_VERSION);
+
+    request.onupgradeneeded = (event: IDBVersionChangeEvent) => {
+      const idb = (event.target as IDBOpenDBRequest).result;
+      if (!idb.objectStoreNames.contains(STORE_MEMBERS)) {
+        idb.createObjectStore(STORE_MEMBERS, { keyPath: 'id' });
+      }
+      if (!idb.objectStoreNames.contains(STORE_GIFTS)) {
+        const giftStore = idb.createObjectStore(STORE_GIFTS, { keyPath: 'id' });
+        giftStore.createIndex('memberId', 'memberId', { unique: false });
+      }
+    };
+
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => reject(request.error);
+  });
+}
+
+// Recupera eventuali dati salvati in precedenza nella memoria locale del dispositivo
+async function getLocalCache(): Promise<{ members: FamilyMember[]; gifts: GiftItem[] }> {
+  try {
+    const idb = await openDB();
+    const members = await new Promise<FamilyMember[]>((resolve) => {
+      const tx = idb.transaction(STORE_MEMBERS, 'readonly');
+      const req = tx.objectStore(STORE_MEMBERS).getAll();
+      req.onsuccess = () => resolve(req.result || []);
+      req.onerror = () => resolve([]);
+    });
+
+    const gifts = await new Promise<GiftItem[]>((resolve) => {
+      const tx = idb.transaction(STORE_GIFTS, 'readonly');
+      const req = tx.objectStore(STORE_GIFTS).getAll();
+      req.onsuccess = () => resolve(req.result || []);
+      req.onerror = () => resolve([]);
+    });
 
     return { members, gifts };
-  } catch (e) {
-    console.warn('Fallback a localStorage:', e);
-    localStorage.setItem('natale_members', JSON.stringify(OFFICIAL_FAMILY_MEMBERS));
-    const gifts = localStorageFallback.getGifts().filter((g) => !['g-1', 'g-2', 'g-3'].includes(g.id));
-    localStorageFallback.saveGifts(gifts);
-    return { members: OFFICIAL_FAMILY_MEMBERS, gifts };
+  } catch {
+    return { members: [], gifts: [] };
   }
+}
+
+// Salva in background la copia cache su IndexedDB
+async function updateLocalCache(members: FamilyMember[], gifts: GiftItem[]) {
+  try {
+    const idb = await openDB();
+    const tx = idb.transaction([STORE_MEMBERS, STORE_GIFTS], 'readwrite');
+    const mStore = tx.objectStore(STORE_MEMBERS);
+    const gStore = tx.objectStore(STORE_GIFTS);
+    mStore.clear();
+    gStore.clear();
+    for (const m of members) mStore.put(m);
+    for (const g of gifts) gStore.put(g);
+  } catch (e) {
+    console.debug('Cache update warning:', e);
+  }
+}
+
+/**
+ * Caricamento iniziale e sincronizzazione con Firestore Cloud:
+ * 1. Recupera membri e regali dal Cloud.
+ * 2. Se è il primo avvio del cloud, popola i 10 membri ufficiali e migra eventuali regali locali di Leo!
+ */
+export async function loadInitialData(): Promise<{ members: FamilyMember[]; gifts: GiftItem[] }> {
+  try {
+    const membersCol = collection(db, 'members');
+    const giftsCol = collection(db, 'gifts');
+
+    const [membersSnap, giftsSnap] = await Promise.all([
+      getDocs(membersCol),
+      getDocs(giftsCol),
+    ]);
+
+    let cloudMembers: FamilyMember[] = membersSnap.docs.map((d) => d.data() as FamilyMember);
+    let cloudGifts: GiftItem[] = giftsSnap.docs.map((d) => d.data() as GiftItem);
+
+    // Se il database Cloud è vuoto o mancano i membri ufficiali, inizializziamo
+    if (cloudMembers.length === 0) {
+      console.log('Inizializzazione Cloud Firestore per la famiglia...');
+      const batch = writeBatch(db);
+
+      // Inserisci i membri ufficiali
+      for (const m of OFFICIAL_FAMILY_MEMBERS) {
+        batch.set(doc(db, 'members', m.id), sanitizeForFirestore(m));
+      }
+
+      // Migra eventuali regali creati in precedenza sul dispositivo locale (es. Leo)
+      const local = await getLocalCache();
+      const existingValidGifts = local.gifts.filter((g) => !['g-1', 'g-2', 'g-3'].includes(g.id));
+      for (const g of existingValidGifts) {
+        batch.set(doc(db, 'gifts', g.id), sanitizeForFirestore(g));
+      }
+
+      await batch.commit();
+
+      cloudMembers = OFFICIAL_FAMILY_MEMBERS;
+      cloudGifts = existingValidGifts;
+    } else {
+      // Assicurati che tutti i 10 membri ufficiali siano presenti
+      const missingMembers = OFFICIAL_FAMILY_MEMBERS.filter(
+        (official) => !cloudMembers.some((m) => m.id === official.id)
+      );
+      if (missingMembers.length > 0) {
+        for (const missing of missingMembers) {
+          await setDoc(doc(db, 'members', missing.id), sanitizeForFirestore(missing));
+          cloudMembers.push(missing);
+        }
+      }
+    }
+
+    // Ordina i membri secondo l'ordine ufficiale
+    cloudMembers.sort((a, b) => a.createdAt - b.createdAt);
+    // Ordina i regali per data decrescente
+    cloudGifts.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+
+    // Aggiorna cache locale
+    updateLocalCache(cloudMembers, cloudGifts);
+
+    return { members: cloudMembers, gifts: cloudGifts };
+  } catch (err) {
+    console.error('Errore connessione Firestore, fallback locale:', err);
+    const local = await getLocalCache();
+    const members = local.members.length > 0 ? local.members : OFFICIAL_FAMILY_MEMBERS;
+    return { members, gifts: local.gifts };
+  }
+}
+
+/**
+ * Sottoscrizione Real-time:
+ * Ogni volta che qualcuno aggiunge un regalo o lo prenota da qualsiasi telefono,
+ * la callback viene richiamata istantaneamente.
+ */
+export function subscribeToFamilyData(
+  onData: (data: { members: FamilyMember[]; gifts: GiftItem[] }) => void
+): () => void {
+  let currentMembers: FamilyMember[] = [...OFFICIAL_FAMILY_MEMBERS];
+  let currentGifts: GiftItem[] = [];
+
+  const unsubMembers = onSnapshot(
+    collection(db, 'members'),
+    (snap) => {
+      if (!snap.empty) {
+        currentMembers = snap.docs.map((d) => d.data() as FamilyMember);
+        currentMembers.sort((a, b) => a.createdAt - b.createdAt);
+      }
+      onData({ members: currentMembers, gifts: currentGifts });
+      updateLocalCache(currentMembers, currentGifts);
+    },
+    (error) => {
+      console.warn('Realtime snapshot members error:', error);
+    }
+  );
+
+  const unsubGifts = onSnapshot(
+    collection(db, 'gifts'),
+    (snap) => {
+      currentGifts = snap.docs.map((d) => d.data() as GiftItem);
+      currentGifts.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+      onData({ members: currentMembers, gifts: currentGifts });
+      updateLocalCache(currentMembers, currentGifts);
+    },
+    (error) => {
+      console.warn('Realtime snapshot gifts error:', error);
+    }
+  );
+
+  return () => {
+    unsubMembers();
+    unsubGifts();
+  };
 }
 
 export async function saveMember(member: FamilyMember): Promise<void> {
   try {
-    const db = await openDB();
-    await new Promise<void>((resolve, reject) => {
-      const tx = db.transaction(STORE_MEMBERS, 'readwrite');
-      const store = tx.objectStore(STORE_MEMBERS);
-      const req = store.put(member);
-      req.onsuccess = () => resolve();
-      req.onerror = () => reject(req.error);
-    });
-  } catch {
-    const members = localStorageFallback.getMembers();
-    const idx = members.findIndex(m => m.id === member.id);
-    if (idx >= 0) members[idx] = member;
-    else members.push(member);
-    localStorageFallback.saveMembers(members);
+    const clean = sanitizeForFirestore(member);
+    await setDoc(doc(db, 'members', member.id), clean, { merge: true });
+  } catch (e) {
+    console.error('Errore salvataggio membro su Firestore:', e);
   }
 }
 
 export async function deleteMember(memberId: string): Promise<void> {
   try {
-    const db = await openDB();
-    const tx = db.transaction([STORE_MEMBERS, STORE_GIFTS], 'readwrite');
-    tx.objectStore(STORE_MEMBERS).delete(memberId);
-    
-    // Rimuovi anche i regali associati
-    const giftsStore = tx.objectStore(STORE_GIFTS);
-    const index = giftsStore.index('memberId');
-    const req = index.getAllKeys(memberId);
-    req.onsuccess = () => {
-      for (const key of req.result) {
-        giftsStore.delete(key);
-      }
-    };
-    await new Promise<void>((resolve) => {
-      tx.oncomplete = () => resolve();
-    });
-  } catch {
-    const members = localStorageFallback.getMembers().filter(m => m.id !== memberId);
-    localStorageFallback.saveMembers(members);
-    const gifts = localStorageFallback.getGifts().filter(g => g.memberId !== memberId);
-    localStorageFallback.saveGifts(gifts);
+    await deleteDoc(doc(db, 'members', memberId));
+  } catch (e) {
+    console.error('Errore eliminazione membro su Firestore:', e);
   }
 }
 
 export async function saveGift(gift: GiftItem): Promise<void> {
   try {
-    const db = await openDB();
-    await new Promise<void>((resolve, reject) => {
-      const tx = db.transaction(STORE_GIFTS, 'readwrite');
-      const store = tx.objectStore(STORE_GIFTS);
-      const req = store.put(gift);
-      req.onsuccess = () => resolve();
-      req.onerror = () => reject(req.error);
-    });
-  } catch {
-    const gifts = localStorageFallback.getGifts();
-    const idx = gifts.findIndex(g => g.id === gift.id);
-    if (idx >= 0) gifts[idx] = gift;
-    else gifts.push(gift);
-    localStorageFallback.saveGifts(gifts);
+    const clean = sanitizeForFirestore(gift);
+    await setDoc(doc(db, 'gifts', gift.id), clean, { merge: true });
+  } catch (e) {
+    console.error('Errore salvataggio regalo su Firestore:', e);
+    throw e;
   }
 }
 
 export async function deleteGift(giftId: string): Promise<void> {
   try {
-    const db = await openDB();
-    await new Promise<void>((resolve, reject) => {
-      const tx = db.transaction(STORE_GIFTS, 'readwrite');
-      const store = tx.objectStore(STORE_GIFTS);
-      const req = store.delete(giftId);
-      req.onsuccess = () => resolve();
-      req.onerror = () => reject(req.error);
-    });
-  } catch {
-    const gifts = localStorageFallback.getGifts().filter(g => g.id !== giftId);
-    localStorageFallback.saveGifts(gifts);
+    await deleteDoc(doc(db, 'gifts', giftId));
+  } catch (e) {
+    console.error('Errore eliminazione regalo su Firestore:', e);
+    throw e;
   }
 }
 
@@ -224,45 +267,33 @@ export function setActiveMemberId(id: string | null) {
   }
 }
 
-// Esporta intero database come JSON per backup / invio via file
+// Esporta intero database come JSON per backup
 export async function exportDatabaseJSON(): Promise<string> {
   const { members, gifts } = await loadInitialData();
   const payload = {
     exportedAt: new Date().toISOString(),
-    version: '1.0',
+    version: '2.0-cloud',
     members,
     gifts,
   };
   return JSON.stringify(payload, null, 2);
 }
 
-// Importa dati da JSON (sovrascrive o unisce)
-export async function importDatabaseJSON(jsonStr: string, merge: boolean = false): Promise<{ members: FamilyMember[]; gifts: GiftItem[] }> {
+// Importa dati da JSON
+export async function importDatabaseJSON(jsonStr: string, _merge: boolean = false): Promise<{ members: FamilyMember[]; gifts: GiftItem[] }> {
   const data = JSON.parse(jsonStr);
   if (!Array.isArray(data.members) || !Array.isArray(data.gifts)) {
     throw new Error('Formato file non valido.');
   }
 
-  const db = await openDB();
-  const tx = db.transaction([STORE_MEMBERS, STORE_GIFTS], 'readwrite');
-  const mStore = tx.objectStore(STORE_MEMBERS);
-  const gStore = tx.objectStore(STORE_GIFTS);
-
-  if (!merge) {
-    mStore.clear();
-    gStore.clear();
-  }
-
+  const batch = writeBatch(db);
   for (const m of data.members) {
-    mStore.put(m);
+    batch.set(doc(db, 'members', m.id), sanitizeForFirestore(m));
   }
   for (const g of data.gifts) {
-    gStore.put(g);
+    batch.set(doc(db, 'gifts', g.id), sanitizeForFirestore(g));
   }
-
-  await new Promise<void>((resolve) => {
-    tx.oncomplete = () => resolve();
-  });
+  await batch.commit();
 
   return { members: data.members, gifts: data.gifts };
 }
