@@ -1,11 +1,10 @@
 import React from 'react';
-import { Gift, Plus, Sparkles, Share2, Users, UserCheck, Palette } from 'lucide-react';
+import { Gift, Plus, Sparkles, Share2, Users, Palette } from 'lucide-react';
 import { FamilyMember } from '../types';
 
 interface NavbarProps {
   currentMember: FamilyMember | null;
   currentUser: FamilyMember | null;
-  onOpenWhoAreYou: () => void;
   onOpenEditProfile: () => void;
   onOpenAddModal: () => void;
   onOpenBackupModal: () => void;
@@ -18,7 +17,6 @@ interface NavbarProps {
 export const Navbar: React.FC<NavbarProps> = ({
   currentMember,
   currentUser,
-  onOpenWhoAreYou,
   onOpenEditProfile,
   onOpenAddModal,
   onOpenBackupModal,
@@ -54,36 +52,23 @@ export const Navbar: React.FC<NavbarProps> = ({
 
           {/* Azioni Principali */}
           <div className="flex items-center space-x-2 sm:space-x-2.5">
-            {/* Profilo "Chi sei?" & Personalizza */}
-            {currentUser ? (
+            {/* Profilo Utente Fisso & Personalizza */}
+            {currentUser && (
               <div className="flex items-center bg-rose-50 border border-rose-200/80 rounded-2xl p-1 shadow-sm">
-                <button
-                  onClick={onOpenWhoAreYou}
-                  title="Cambia membro della famiglia"
-                  className="flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold text-rose-900 hover:text-red-700 transition-colors"
-                >
+                <div className="flex items-center gap-1.5 px-2.5 py-1 text-xs font-bold text-rose-950">
                   <span className="text-base">{currentUser.avatar}</span>
                   <span className="hidden sm:inline">{currentUser.name}</span>
-                </button>
+                </div>
                 <div className="w-px h-4 bg-rose-200 mx-0.5" />
                 <button
                   onClick={onOpenEditProfile}
-                  title="Personalizza emoji, colore banner e motto"
-                  className="p-1 sm:px-2 sm:py-1 rounded-xl text-rose-700 hover:bg-rose-100/70 text-xs font-medium transition-colors flex items-center gap-1"
+                  title="Personalizza colore banner, emoji e motto"
+                  className="p-1 sm:px-2 sm:py-1 rounded-xl text-rose-700 hover:bg-rose-100/70 text-xs font-semibold transition-colors flex items-center gap-1"
                 >
                   <Palette className="w-3.5 h-3.5" />
                   <span className="hidden md:inline">Personalizza</span>
                 </button>
               </div>
-            ) : (
-              <button
-                onClick={onOpenWhoAreYou}
-                title="Seleziona chi sei"
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs sm:text-sm font-semibold bg-amber-50 border border-amber-300 text-amber-800 hover:bg-amber-100 animate-pulse transition-all"
-              >
-                <UserCheck className="w-4 h-4 text-amber-600" />
-                <span>Chi sei?</span>
-              </button>
             )}
 
             {/* Toggle Fiocchi di Neve */}
@@ -99,14 +84,14 @@ export const Navbar: React.FC<NavbarProps> = ({
               <Sparkles className="w-4 h-4 sm:w-5 sm:h-5" />
             </button>
 
-            {/* Gestisci Membri Famiglia */}
+            {/* Visualizza Membri Famiglia */}
             <button
               onClick={onOpenMembersModal}
-              title="Gestisci membri della famiglia"
+              title="Vedi membri della famiglia"
               className="p-2 sm:px-2.5 sm:py-2 rounded-xl border border-slate-200 text-slate-700 hover:bg-slate-50 flex items-center space-x-1 text-xs sm:text-sm font-medium transition-colors"
             >
               <Users className="w-4 h-4 text-emerald-700" />
-              <span className="hidden lg:inline">Membri</span>
+              <span className="hidden lg:inline">Famiglia</span>
             </button>
 
             {/* Condivisione & Backup */}

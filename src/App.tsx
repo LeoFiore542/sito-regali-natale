@@ -18,7 +18,7 @@ import { ManageMembersModal } from './components/ManageMembersModal';
 import { WhoAreYouModal } from './components/WhoAreYouModal';
 import { EditProfileModal } from './components/EditProfileModal';
 import { SnowEffect } from './components/SnowEffect';
-import { Plus, Search, Sparkles, UserCheck, Palette } from 'lucide-react';
+import { Plus, Search, Sparkles, Palette } from 'lucide-react';
 
 const CURRENT_USER_KEY = 'natale_logged_user_id';
 
@@ -48,10 +48,12 @@ export const App: React.FC = () => {
 
       const savedUser = localStorage.getItem(CURRENT_USER_KEY);
       if (savedUser && members.some((m) => m.id === savedUser)) {
+        // Utente già identificato: permanente!
         setCurrentUserId(savedUser);
         setSelectedMemberId(savedUser);
+        setIsWhoAreYouOpen(false);
       } else {
-        // La prima cosa che il sito chiede è chi sei!
+        // Primo accesso: l'utente DEVE scegliere chi è in modo definitivo
         setIsWhoAreYouOpen(true);
         setSelectedMemberId('all');
       }
@@ -60,18 +62,12 @@ export const App: React.FC = () => {
     });
   }, []);
 
-  // Seleziona chi sei (identità)
+  // Selezione permanente e definitiva di chi sei
   const handleSelectUserIdentity = (member: FamilyMember) => {
     setCurrentUserId(member.id);
     localStorage.setItem(CURRENT_USER_KEY, member.id);
     setSelectedMemberId(member.id);
     setActiveMemberId(member.id);
-    setIsWhoAreYouOpen(false);
-  };
-
-  // Esplora senza identificarsi subito
-  const handleExploreAll = () => {
-    setSelectedMemberId('all');
     setIsWhoAreYouOpen(false);
   };
 
@@ -101,26 +97,25 @@ export const App: React.FC = () => {
     await saveMember(newMember);
     setMembers((prev) => [...prev, newMember]);
     setSelectedMemberId(newMember.id);
-    setActiveMemberId(newMember.id);
   };
 
-  // Salva aggiornamenti profilo membro
+  // Salva aggiornamenti profilo membro (emoji, banner, bio)
   const handleSaveProfile = async (updated: FamilyMember) => {
     await saveMember(updated);
     setMembers((prev) => prev.map((m) => (m.id === updated.id ? updated : m)));
   };
 
-  // Elimina membro
+  // Elimina membro (solo da pannello famiglia)
   const handleDeleteMember = async (id: string) => {
+    if (id === currentUserId) {
+      alert('Non puoi eliminare il tuo stesso profilo.');
+      return;
+    }
     await removeMemberStorage(id);
     setMembers((prev) => prev.filter((m) => m.id !== id));
     setGifts((prev) => prev.filter((g) => g.memberId !== id));
     if (selectedMemberId === id) {
       setSelectedMemberId('all');
-    }
-    if (currentUserId === id) {
-      setCurrentUserId(null);
-      localStorage.removeItem(CURRENT_USER_KEY);
     }
   };
 
@@ -152,20 +147,19 @@ export const App: React.FC = () => {
   };
 
   // Toggle "Prenotato / Ci penso io"
+  // Assegna direttamente il nome dell'utente loggato permanente
   const handleToggleReserve = async (gift: GiftItem) => {
-    let buyerName: string | null = null;
     const currentUserObj = members.find((m) => m.id === currentUserId);
+    if (!currentUserObj) {
+      setIsWhoAreYouOpen(true);
+      return;
+    }
 
+    let buyerName: string | null = null;
     if (!gift.reservedBy) {
-      const defaultName = currentUserObj ? currentUserObj.name : 'Io';
-      const promptName = prompt(
-        `Chi acquisterà questo regalo? (Inserisci il tuo nome per avvisare la famiglia)`,
-        defaultName
-      );
-      if (!promptName || !promptName.trim()) return;
-      buyerName = promptName.trim();
+      buyerName = currentUserObj.name;
     } else {
-      const confirmRemove = confirm(`Vuoi rimuovere la prenotazione da parte di ${gift.reservedBy}?`);
+      const confirmRemove = confirm(`Vuoi rimuovere la prenotazione "Preso da ${gift.reservedBy}"?`);
       if (!confirmRemove) return;
       buyerName = null;
     }
@@ -181,11 +175,9 @@ export const App: React.FC = () => {
   // Filtra regali
   const filteredGifts = useMemo(() => {
     return gifts.filter((gift) => {
-      // Filtro membro
       if (selectedMemberId !== 'all' && gift.memberId !== selectedMemberId) {
         return false;
       }
-      // Filtro ricerca testuale
       if (searchQuery.trim()) {
         const q = searchQuery.toLowerCase();
         const matchTitle = gift.title.toLowerCase().includes(q);
@@ -196,13 +188,13 @@ export const App: React.FC = () => {
     });
   }, [gifts, selectedMemberId, searchQuery]);
 
-  // Membro correntemente attivo per la visualizzazione
+  // Membro correntemente visualizzato
   const currentMember = useMemo(() => {
     if (selectedMemberId === 'all') return null;
     return members.find((m) => m.id === selectedMemberId) || null;
   }, [members, selectedMemberId]);
 
-  // Utente loggato
+  // Utente loggato fisso
   const loggedUser = useMemo(() => {
     return members.find((m) => m.id === currentUserId) || null;
   }, [members, currentUserId]);
@@ -244,9 +236,8 @@ export const App: React.FC = () => {
 
       {/* Navbar Principale */}
       <Navbar
-        currentMember={currentMember || members[0] || null}
+        currentMember={currentMember || loggedUser || members[0] || null}
         currentUser={loggedUser}
-        onOpenWhoAreYou={() => setIsWhoAreYouOpen(true)}
         onOpenEditProfile={() => {
           if (loggedUser) openEditProfileFor(loggedUser);
         }}
@@ -263,7 +254,7 @@ export const App: React.FC = () => {
 
       {/* Contenuto Principale */}
       <main className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-6 flex-1 w-full space-y-6">
-        {/* Banner Natalizio Dinamico Personalizzato */}
+        {/* Banner Natalizio Personalizzato */}
         <section
           className={`relative overflow-hidden rounded-3xl bg-gradient-to-br ${activeBannerTheme.gradientClass} text-white p-6 sm:p-8 shadow-xl shadow-black/10 transition-all duration-500`}
         >
@@ -308,11 +299,11 @@ export const App: React.FC = () => {
               <p className="text-xs sm:text-sm text-white/85 leading-relaxed">
                 {currentMember
                   ? `Ecco cosa vorrebbe ricevere ${currentMember.name} per Natale. Puoi aggiungere un link o segnare cosa comprerai per evitare doppioni!`
-                  : `Seleziona il tuo nome o guarda le liste degli altri per organizzare i regali perfetti!`}
+                  : `Guarda i desideri della famiglia e aggiungi i regali che vorresti ricevere per Natale!`}
               </p>
             </div>
 
-            {/* Pulsanti Rapidi Banner */}
+            {/* Azioni Banner */}
             <div className="flex flex-wrap items-center gap-2.5">
               <button
                 onClick={() => {
@@ -322,32 +313,20 @@ export const App: React.FC = () => {
                 className="px-5 py-3 rounded-2xl bg-white hover:bg-slate-50 text-slate-900 font-bold text-xs sm:text-sm shadow-lg shadow-black/15 transition-all transform hover:scale-105 active:scale-95 flex items-center gap-2"
               >
                 <Plus className="w-4 h-4 text-red-600 stroke-[3]" />
-                <span>Aggiungi Regalo</span>
+                <span>Aggiungi un Regalo</span>
               </button>
 
-              {/* Pulsante Personalizza Profilo */}
-              {(currentMember || loggedUser) && (
+              {/* Personalizza il profilo dell'utente loggato */}
+              {loggedUser && (
                 <button
-                  onClick={() => {
-                    const target = currentMember || loggedUser;
-                    if (target) openEditProfileFor(target);
-                  }}
+                  onClick={() => openEditProfileFor(loggedUser)}
                   className="px-4 py-3 rounded-2xl bg-white/15 hover:bg-white/25 border border-white/25 text-white text-xs font-semibold backdrop-blur-sm transition-all flex items-center gap-1.5"
-                  title="Modifica colore del banner, emoji, nome e motto"
+                  title="Modifica colore del banner, la tua emoji e il motto"
                 >
                   <Palette className="w-4 h-4 text-amber-300" />
                   <span>Personalizza Profilo</span>
                 </button>
               )}
-
-              <button
-                onClick={() => setIsWhoAreYouOpen(true)}
-                className="px-3.5 py-3 rounded-2xl bg-black/20 hover:bg-black/30 border border-white/15 text-white text-xs font-semibold backdrop-blur-sm transition-colors flex items-center gap-1.5"
-                title="Cambia membro della famiglia"
-              >
-                <UserCheck className="w-4 h-4 text-white/80" />
-                <span className="hidden sm:inline">Chi sei?</span>
-              </button>
             </div>
           </div>
         </section>
@@ -421,7 +400,7 @@ export const App: React.FC = () => {
           /* Stato Vuoto Accogliente */
           <div className="text-center py-16 px-4 bg-white rounded-3xl border border-red-100 shadow-sm max-w-xl mx-auto my-6 space-y-4">
             <div className="w-16 h-16 rounded-3xl bg-red-50 text-red-600 flex items-center justify-center mx-auto text-3xl">
-              {currentMember?.avatar || '🎅'}
+              {currentMember?.avatar || loggedUser?.avatar || '🎅'}
             </div>
             <div className="space-y-1">
               <h3 className="text-lg font-bold text-slate-900 festive-font">
@@ -462,22 +441,17 @@ export const App: React.FC = () => {
             <span>per il Natale in famiglia</span>
           </p>
           <div className="flex items-center gap-4 text-xs text-slate-500">
-            <button
-              onClick={() => setIsWhoAreYouOpen(true)}
-              className="hover:text-red-600 transition-colors font-medium"
-            >
-              Cambia Profilo
-            </button>
-            <span>•</span>
-            <button
-              onClick={() => {
-                if (loggedUser) openEditProfileFor(loggedUser);
-              }}
-              className="hover:text-red-600 transition-colors font-medium"
-            >
-              Personalizza Profilo
-            </button>
-            <span>•</span>
+            {loggedUser && (
+              <>
+                <button
+                  onClick={() => openEditProfileFor(loggedUser)}
+                  className="hover:text-red-600 transition-colors font-semibold text-slate-700"
+                >
+                  Personalizza Profilo ({loggedUser.name})
+                </button>
+                <span>•</span>
+              </>
+            )}
             <button
               onClick={() => setIsBackupModalOpen(true)}
               className="hover:text-red-600 transition-colors"
@@ -488,14 +462,11 @@ export const App: React.FC = () => {
         </div>
       </footer>
 
-      {/* Schermata Iniziale "Chi sei?" */}
+      {/* Schermata Iniziale Obbligatoria e Definitiva "Chi sei?" */}
       <WhoAreYouModal
         isOpen={isWhoAreYouOpen}
         members={members}
         onSelectUser={handleSelectUserIdentity}
-        onExploreAll={handleExploreAll}
-        canDismiss={!!currentUserId}
-        onClose={() => setIsWhoAreYouOpen(false)}
       />
 
       {/* Modale Personalizzazione Profilo */}
