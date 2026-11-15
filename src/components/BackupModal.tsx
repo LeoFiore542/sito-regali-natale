@@ -8,6 +8,7 @@ interface BackupModalProps {
   onClose: () => void;
   members: FamilyMember[];
   gifts: GiftItem[];
+  currentUserId?: string | null;
   onDataImported: (data: { members: FamilyMember[]; gifts: GiftItem[] }) => void;
 }
 
@@ -16,6 +17,7 @@ export const BackupModal: React.FC<BackupModalProps> = ({
   onClose,
   members,
   gifts,
+  currentUserId,
   onDataImported,
 }) => {
   const [copied, setCopied] = useState(false);
@@ -69,7 +71,10 @@ export const BackupModal: React.FC<BackupModalProps> = ({
           text += `  ${i + 1}. *${g.title}*`;
           if (g.price) text += ` (${g.price})`;
           if (g.priority === 'alta') text += ` 🔥`;
-          if (g.reservedBy) text += ` [Preso da ${g.reservedBy}]`;
+          // Mostra chi lo prende per tutti TRANNE che per il proprietario del regalo!
+          if (g.reservedBy && m.id !== currentUserId) {
+            text += ` [Preso da ${g.reservedBy}]`;
+          }
           text += `\n`;
           if (g.description) text += `     📝 ${g.description}\n`;
           if (g.link) text += `     🔗 ${g.link}\n`;

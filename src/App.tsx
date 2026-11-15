@@ -594,6 +594,7 @@ export const App: React.FC = () => {
         onClose={() => setIsBackupModalOpen(false)}
         members={members}
         gifts={gifts}
+        currentUserId={currentUserId}
         onDataImported={({ members, gifts }) => {
           setMembers(members);
           setGifts(gifts);

@@ -21,14 +21,16 @@ export const GiftCard: React.FC<GiftCardProps> = ({
   onToggleReserve,
   currentUserId,
 }) => {
-  const isReserved = !!gift.reservedBy;
   // È un regalo della mia lista?
   const isMyGift = !!currentUserId && gift.memberId === currentUserId;
+
+  // L'informazione di prenotazione è visibile a tutti TRANNE che al festeggiato (proprietario del regalo)
+  const isReservedVisible = !isMyGift && !!gift.reservedBy;
 
   return (
     <div
       className={`group relative bg-white rounded-3xl border transition-all duration-300 overflow-hidden flex flex-col ${
-        isReserved
+        isReservedVisible
           ? 'border-emerald-200 bg-emerald-50/20 shadow-sm'
           : 'border-red-100/80 shadow-md hover:shadow-xl hover:border-red-200 hover:-translate-y-0.5'
       }`}
@@ -57,11 +59,11 @@ export const GiftCard: React.FC<GiftCardProps> = ({
           </div>
         )}
 
-        {/* Badge Prenotato (Ci pensa qualcuno) - Per i propri regali lascia la sorpresa */}
-        {isReserved && (
+        {/* Badge Prenotato: Visibile a tutta la famiglia MAI a chi deve ricevere il regalo! */}
+        {isReservedVisible && (
           <div className="absolute top-3 right-3 bg-emerald-600/95 backdrop-blur-md text-white px-3 py-1 rounded-full shadow-lg text-xs font-semibold flex items-center gap-1 border border-emerald-400">
             <Check className="w-3.5 h-3.5" />
-            <span>{isMyGift ? 'Qualcuno ci sta pensando 🤫' : `Preso da ${gift.reservedBy}`}</span>
+            <span>Preso da {gift.reservedBy}</span>
           </div>
         )}
       </div>
@@ -101,18 +103,18 @@ export const GiftCard: React.FC<GiftCardProps> = ({
 
           {/* Pulsanti di gestione / prenotazione */}
           <div className="flex items-center justify-between gap-1 text-slate-500">
-            {/* Toggle "Ci penso io" SOLO per i regali degli altri parenti, MAI per i propri! */}
+            {/* Toggle "Ci penso io" SOLO per i regali altrui. Per i propri regali l'utente non vede alcuno stato */}
             {!isMyGift ? (
               <button
                 onClick={() => onToggleReserve(gift)}
                 className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-colors ${
-                  isReserved
+                  gift.reservedBy
                     ? 'bg-emerald-100 text-emerald-800 hover:bg-emerald-200'
                     : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
                 }`}
-                title={isReserved ? 'Segna come non ancora acquistato' : 'Segna che ci pensi tu ad acquistarlo'}
+                title={gift.reservedBy ? 'Segna come non ancora acquistato' : 'Segna che ci pensi tu ad acquistarlo'}
               >
-                {isReserved ? (
+                {gift.reservedBy ? (
                   <>
                     <Check className="w-3.5 h-3.5 text-emerald-600" />
                     <span>Acquistato</span>
@@ -125,13 +127,13 @@ export const GiftCard: React.FC<GiftCardProps> = ({
                 )}
               </button>
             ) : (
-              <span className="inline-flex items-center gap-1 text-xs text-rose-600/80 font-medium px-2 py-1 bg-rose-50/60 rounded-lg">
-                <Sparkles className="w-3.5 h-3.5 text-rose-500" />
-                <span>La tua lista</span>
+              <span className="inline-flex items-center gap-1 text-xs text-slate-400 font-medium px-2 py-1">
+                <Sparkles className="w-3.5 h-3.5 text-red-400" />
+                <span>Il tuo desiderio</span>
               </span>
             )}
 
-            {/* Modifica ed Elimina */}
+            {/* Modifica ed Elimina (visibili al proprietario o a tutti per gestire la lista) */}
             <div className="flex items-center gap-1">
               <button
                 onClick={() => onEdit(gift)}
