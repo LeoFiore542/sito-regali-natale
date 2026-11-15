@@ -586,7 +586,6 @@ export const App: React.FC = () => {
           setGiftToEdit(null);
         }}
         onSave={handleSaveGift}
-        members={members}
         initialMemberId={
           currentUserId && members.some((m) => m.id === currentUserId)
             ? currentUserId

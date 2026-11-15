@@ -1,6 +1,6 @@
 import React from 'react';
 import { GiftItem, FamilyMember } from '../types';
-import { ExternalLink, Edit2, Trash2, Tag, Gift, Check, Clock } from 'lucide-react';
+import { ExternalLink, Edit2, Trash2, Gift, Check, Clock } from 'lucide-react';
 
 interface GiftCardProps {
   gift: GiftItem;
@@ -21,25 +21,6 @@ export const GiftCard: React.FC<GiftCardProps> = ({
   onToggleReserve,
 }) => {
   const isReserved = !!gift.reservedBy;
-
-  const priorityBadge = () => {
-    switch (gift.priority) {
-      case 'alta':
-        return (
-          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-rose-50 text-rose-700 border border-rose-200">
-            🔥 Desiderio Top
-          </span>
-        );
-      case 'bassa':
-        return (
-          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-slate-50 text-slate-600 border border-slate-200">
-            💡 Idea carina
-          </span>
-        );
-      default:
-        return null;
-    }
-  };
 
   return (
     <div
@@ -80,30 +61,11 @@ export const GiftCard: React.FC<GiftCardProps> = ({
             <span>Preso da {gift.reservedBy}</span>
           </div>
         )}
-
-        {/* Prezzo fluttuante */}
-        {gift.price && !isReserved && (
-          <div className="absolute bottom-3 right-3 bg-slate-900/80 backdrop-blur-md text-white px-2.5 py-1 rounded-lg text-xs font-semibold flex items-center gap-1 shadow">
-            <Tag className="w-3 h-3 text-amber-400" />
-            <span>{gift.price}</span>
-          </div>
-        )}
       </div>
 
       {/* Contenuto Card */}
       <div className="p-5 flex-1 flex flex-col justify-between space-y-3">
         <div>
-          {/* Badge di priorità */}
-          <div className="mb-2 flex items-center gap-2 flex-wrap">
-            {priorityBadge()}
-            {gift.price && isReserved && (
-              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-600">
-                <Tag className="w-3 h-3" />
-                {gift.price}
-              </span>
-            )}
-          </div>
-
           {/* Titolo del Regalo */}
           <h3 className="text-base sm:text-lg font-bold text-slate-900 line-clamp-2 leading-snug group-hover:text-red-700 transition-colors">
             {gift.title}
@@ -131,7 +93,7 @@ export const GiftCard: React.FC<GiftCardProps> = ({
               <ExternalLink className="w-3.5 h-3.5" />
             </a>
           ) : (
-            <div className="h-2"></div>
+            <div className="h-1"></div>
           )}
 
           {/* Pulsanti di gestione / prenotazione */}

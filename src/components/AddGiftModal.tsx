@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { FamilyMember, GiftItem, PriorityLevel } from '../types';
+import { GiftItem } from '../types';
 import { X, Upload, Link as LinkIcon, Image as ImageIcon, Sparkles, AlertCircle } from 'lucide-react';
 import confetti from 'canvas-confetti';
 
@@ -7,8 +7,7 @@ interface AddGiftModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSave: (gift: Omit<GiftItem, 'id' | 'createdAt'>) => void;
-  members: FamilyMember[];
-  initialMemberId?: string;
+  initialMemberId: string;
   giftToEdit?: GiftItem | null;
 }
 
@@ -16,18 +15,14 @@ export const AddGiftModal: React.FC<AddGiftModalProps> = ({
   isOpen,
   onClose,
   onSave,
-  members,
   initialMemberId,
   giftToEdit,
 }) => {
-  const [memberId, setMemberId] = useState(initialMemberId || (members[0]?.id ?? ''));
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [link, setLink] = useState('');
   const [imageUrl, setImageUrl] = useState('');
   const [imageMode, setImageMode] = useState<'upload' | 'url'>('upload');
-  const [price, setPrice] = useState('');
-  const [priority, setPriority] = useState<PriorityLevel>('media');
   const [isUploading, setIsUploading] = useState(false);
   const [uploadError, setUploadError] = useState('');
 
@@ -36,30 +31,24 @@ export const AddGiftModal: React.FC<AddGiftModalProps> = ({
   // Popola se è in modalità modifica
   useEffect(() => {
     if (giftToEdit) {
-      setMemberId(giftToEdit.memberId);
       setTitle(giftToEdit.title);
       setDescription(giftToEdit.description || '');
       setLink(giftToEdit.link || '');
       setImageUrl(giftToEdit.imageUrl || '');
-      setPrice(giftToEdit.price || '');
-      setPriority(giftToEdit.priority || 'media');
       if (giftToEdit.imageUrl?.startsWith('data:')) {
         setImageMode('upload');
       } else if (giftToEdit.imageUrl) {
         setImageMode('url');
       }
     } else {
-      setMemberId(initialMemberId && initialMemberId !== 'all' ? initialMemberId : (members[0]?.id ?? ''));
       setTitle('');
       setDescription('');
       setLink('');
       setImageUrl('');
-      setPrice('');
-      setPriority('media');
       setImageMode('upload');
     }
     setUploadError('');
-  }, [giftToEdit, initialMemberId, members, isOpen]);
+  }, [giftToEdit, isOpen]);
 
   if (!isOpen) return null;
 
@@ -80,7 +69,6 @@ export const AddGiftModal: React.FC<AddGiftModalProps> = ({
     reader.onload = (event) => {
       const img = new Image();
       img.onload = () => {
-        // Ridimensionamento max 1000px per mantenere leggerezza e alta qualità
         const canvas = document.createElement('canvas');
         const MAX_WIDTH = 1000;
         const MAX_HEIGHT = 1000;
@@ -112,7 +100,7 @@ export const AddGiftModal: React.FC<AddGiftModalProps> = ({
         setIsUploading(false);
       };
       img.onerror = () => {
-        setUploadError('Impossibile caricare l\'immagine.');
+        setUploadError('Impossibile elaborare l\'immagine.');
         setIsUploading(false);
       };
       img.src = event.target?.result as string;
@@ -122,7 +110,7 @@ export const AddGiftModal: React.FC<AddGiftModalProps> = ({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!title.trim() || !memberId) return;
+    if (!title.trim() || !initialMemberId) return;
 
     let cleanLink = link.trim();
     if (cleanLink && !cleanLink.startsWith('http://') && !cleanLink.startsWith('https://')) {
@@ -130,16 +118,13 @@ export const AddGiftModal: React.FC<AddGiftModalProps> = ({
     }
 
     onSave({
-      memberId,
+      memberId: initialMemberId,
       title: title.trim(),
       description: description.trim() || undefined,
       link: cleanLink || undefined,
       imageUrl: imageUrl.trim() || undefined,
-      price: price.trim() || undefined,
-      priority,
     });
 
-    // Effetto coriandoli natalizi
     confetti({
       particleCount: 40,
       spread: 60,
@@ -152,7 +137,8 @@ export const AddGiftModal: React.FC<AddGiftModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
-      <div className="relative w-full max-w-xl bg-white rounded-3xl shadow-2xl border border-red-100 overflow-hidden my-8 animate-in fade-in zoom-in-95 duration-200">
+      <div className="relative w-full max-w-lg bg-white rounded-3xl shadow-2xl border border-red-100 overflow-hidden my-6 animate-in fade-in zoom-in-95 duration-200">
+        
         {/* Intestazione decorata */}
         <div className="bg-gradient-to-r from-red-600 via-rose-600 to-red-700 px-6 py-5 text-white flex items-center justify-between">
           <div className="flex items-center space-x-2.5">
@@ -161,10 +147,10 @@ export const AddGiftModal: React.FC<AddGiftModalProps> = ({
             </div>
             <div>
               <h3 className="text-lg font-bold festive-font tracking-wide">
-                {giftToEdit ? 'Modifica Regalo' : 'Aggiungi un Desiderio'}
+                {giftToEdit ? 'Modifica Regalo' : 'Aggiungi Regalo'}
               </h3>
               <p className="text-xs text-red-100">
-                Inserisci titolo, foto, link e note per la tua lista
+                Inserisci nome, descrizione, foto e link
               </p>
             </div>
           </div>
@@ -176,61 +162,44 @@ export const AddGiftModal: React.FC<AddGiftModalProps> = ({
           </button>
         </div>
 
-        {/* Form */}
+        {/* Form minimale e pulito */}
         <form onSubmit={handleSubmit} className="p-6 space-y-4">
-          {/* Selezione Membro */}
+          
+          {/* 1. Nome del Regalo (Obbligatorio) */}
           <div>
-            <label className="block text-xs font-semibold uppercase tracking-wider text-slate-600 mb-1.5">
-              Per chi è questo regalo? *
-            </label>
-            <select
-              value={memberId}
-              onChange={(e) => setMemberId(e.target.value)}
-              required
-              className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-slate-50 text-slate-800 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-red-500/30 focus:border-red-500"
-            >
-              {members.map((m) => (
-                <option key={m.id} value={m.id}>
-                  {m.avatar} {m.name}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          {/* Titolo / Nome Regalo */}
-          <div>
-            <label className="block text-xs font-semibold uppercase tracking-wider text-slate-600 mb-1.5">
-              Cosa vorresti ricevere? (Nome o Titolo) *
+            <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
+              Nome del regalo *
             </label>
             <input
               type="text"
               required
+              autoFocus
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              placeholder="es. Maglione di lana, Kindle, Lego Star Wars..."
-              className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-slate-800 text-sm focus:outline-none focus:ring-2 focus:ring-red-500/30 focus:border-red-500"
+              placeholder="es. Maglione di lana, Kindle, Lego..."
+              className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-slate-800 text-sm focus:outline-none focus:ring-2 focus:ring-red-500/30 focus:border-red-500 font-medium"
             />
           </div>
 
-          {/* Descrizione / Dettagli */}
+          {/* 2. Descrizione (Opzionale) */}
           <div>
             <label className="block text-xs font-semibold uppercase tracking-wider text-slate-600 mb-1.5">
-              Descrizione o note (opzionale)
+              Descrizione <span className="text-slate-400 font-normal lowercase">(opzionale)</span>
             </label>
             <textarea
               rows={2}
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              placeholder="Taglia, colore preferito, modello specifico o dove trovarlo..."
+              placeholder="Taglia, colore preferito, modello specifico o note..."
               className="w-full px-3.5 py-2 rounded-xl border border-slate-200 text-slate-800 text-sm focus:outline-none focus:ring-2 focus:ring-red-500/30 focus:border-red-500 resize-none"
             />
           </div>
 
-          {/* Sezione Foto/Immagine */}
+          {/* 3. Foto (Opzionale) */}
           <div>
             <div className="flex items-center justify-between mb-1.5">
               <label className="text-xs font-semibold uppercase tracking-wider text-slate-600">
-                Foto o Immagine (opzionale)
+                Foto <span className="text-slate-400 font-normal lowercase">(opzionale)</span>
               </label>
               <div className="flex items-center bg-slate-100 p-0.5 rounded-lg text-xs">
                 <button
@@ -253,7 +222,7 @@ export const AddGiftModal: React.FC<AddGiftModalProps> = ({
                       : 'text-slate-500 hover:text-slate-700'
                   }`}
                 >
-                  Link URL Web
+                  Link URL
                 </button>
               </div>
             </div>
@@ -303,10 +272,10 @@ export const AddGiftModal: React.FC<AddGiftModalProps> = ({
                         <Upload className="w-5 h-5" />
                       </div>
                       <span className="text-xs font-medium text-slate-700">
-                        {isUploading ? 'Elaborazione immagine...' : 'Tocca o clicca per caricare una foto'}
+                        {isUploading ? 'Caricamento in corso...' : 'Tocca per caricare una foto'}
                       </span>
                       <span className="text-[11px] text-slate-400 mt-0.5">
-                        JPEG, PNG, WebP dal tuo cellulare o computer
+                        JPEG, PNG, WebP dal tuo dispositivo
                       </span>
                     </div>
                   </button>
@@ -322,7 +291,7 @@ export const AddGiftModal: React.FC<AddGiftModalProps> = ({
                     type="url"
                     value={imageUrl}
                     onChange={(e) => setImageUrl(e.target.value)}
-                    placeholder="https://images.example.com/foto-regalo.jpg"
+                    placeholder="https://images.example.com/foto.jpg"
                     className="w-full pl-10 pr-3.5 py-2.5 rounded-xl border border-slate-200 text-slate-800 text-sm focus:outline-none focus:ring-2 focus:ring-red-500/30 focus:border-red-500"
                   />
                 </div>
@@ -332,7 +301,7 @@ export const AddGiftModal: React.FC<AddGiftModalProps> = ({
                       src={imageUrl}
                       alt="Anteprima URL"
                       className="max-h-32 w-auto object-contain"
-                      onError={() => setUploadError('URL immagine non raggiungibile o non valido')}
+                      onError={() => setUploadError('URL non valido')}
                     />
                   </div>
                 )}
@@ -347,10 +316,10 @@ export const AddGiftModal: React.FC<AddGiftModalProps> = ({
             )}
           </div>
 
-          {/* Link di acquisto (Amazon o store) */}
+          {/* 4. Link di acquisto (Opzionale) */}
           <div>
             <label className="block text-xs font-semibold uppercase tracking-wider text-slate-600 mb-1.5">
-              Link per l'acquisto (opzionale)
+              Link di acquisto <span className="text-slate-400 font-normal lowercase">(opzionale)</span>
             </label>
             <div className="relative">
               <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
@@ -360,40 +329,9 @@ export const AddGiftModal: React.FC<AddGiftModalProps> = ({
                 type="text"
                 value={link}
                 onChange={(e) => setLink(e.target.value)}
-                placeholder="https://amazon.it/dp/... o altro negozio online"
+                placeholder="https://amazon.it/... o altro link online"
                 className="w-full pl-10 pr-3.5 py-2.5 rounded-xl border border-slate-200 text-slate-800 text-sm focus:outline-none focus:ring-2 focus:ring-red-500/30 focus:border-red-500"
               />
-            </div>
-          </div>
-
-          {/* Prezzo e Priorità */}
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="block text-xs font-semibold uppercase tracking-wider text-slate-600 mb-1.5">
-                Prezzo indicativo (opzionale)
-              </label>
-              <input
-                type="text"
-                value={price}
-                onChange={(e) => setPrice(e.target.value)}
-                placeholder="es. 25€, ~50€"
-                className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-slate-800 text-sm focus:outline-none focus:ring-2 focus:ring-red-500/30 focus:border-red-500"
-              />
-            </div>
-
-            <div>
-              <label className="block text-xs font-semibold uppercase tracking-wider text-slate-600 mb-1.5">
-                Priorità del desiderio
-              </label>
-              <select
-                value={priority}
-                onChange={(e) => setPriority(e.target.value as PriorityLevel)}
-                className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-white text-slate-800 text-sm focus:outline-none focus:ring-2 focus:ring-red-500/30 focus:border-red-500"
-              >
-                <option value="alta">🔥 Alta (Lo desidero tanto!)</option>
-                <option value="media">⭐ Media (Mi farebbe piacere)</option>
-                <option value="bassa">💡 Bassa (Idea carina)</option>
-              </select>
             </div>
           </div>
 
@@ -402,13 +340,13 @@ export const AddGiftModal: React.FC<AddGiftModalProps> = ({
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2.5 rounded-xl text-sm font-medium text-slate-600 hover:bg-slate-100 transition-colors"
+              className="px-4 py-2.5 rounded-xl text-xs font-semibold text-slate-600 hover:bg-slate-100 transition-colors"
             >
               Annulla
             </button>
             <button
               type="submit"
-              className="px-5 py-2.5 rounded-xl text-sm font-medium text-white bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-700 hover:to-rose-700 shadow-md shadow-red-200 transition-all flex items-center gap-1.5 transform active:scale-95"
+              className="px-5 py-2.5 rounded-xl text-xs sm:text-sm font-semibold text-white bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-700 hover:to-rose-700 shadow-md shadow-red-200 transition-all flex items-center gap-1.5 transform active:scale-95"
             >
               <Sparkles className="w-4 h-4" />
               <span>{giftToEdit ? 'Aggiorna Regalo' : 'Aggiungi alla Lista'}</span>
