@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { Gift, Plus, Sparkles, Palette, Crown, HelpCircle } from 'lucide-react';
+import { Gift, Plus, Sparkles, Palette, Crown, HelpCircle, Download } from 'lucide-react';
 import { FamilyMember } from '../types';
 
 interface NavbarProps {
@@ -10,6 +10,8 @@ interface NavbarProps {
   onOpenEditProfile: () => void;
   onOpenAddModal: () => void;
   onOpenGuide: () => void;
+  onInstallApp: () => void;
+  isAppInstalled?: boolean;
   snowing: boolean;
   toggleSnow: () => void;
   totalGiftsCount: number;
@@ -23,6 +25,8 @@ export const Navbar: React.FC<NavbarProps> = ({
   onOpenEditProfile,
   onOpenAddModal,
   onOpenGuide,
+  onInstallApp,
+  isAppInstalled = false,
   snowing,
   toggleSnow,
 }) => {
@@ -41,20 +45,20 @@ export const Navbar: React.FC<NavbarProps> = ({
         {/* Filo decorativo natalizio superiore */}
         <div className="h-1 w-full bg-gradient-to-r from-red-600 via-amber-400 via-emerald-500 to-rose-600" />
 
-        <div className="max-w-6xl mx-auto px-3 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-16 sm:h-20 gap-2">
+        <div className="max-w-6xl mx-auto px-2.5 sm:px-6 lg:px-8">
+          <div className="flex items-center justify-between h-16 sm:h-20 gap-1.5 sm:gap-2">
             {/* Logo e Titolo */}
-            <div className="flex items-center gap-2.5 sm:gap-3.5 min-w-0">
-              <div className="relative w-10 h-10 sm:w-12 sm:h-12 rounded-2xl bg-gradient-to-br from-red-600 via-rose-600 to-amber-600 text-white flex items-center justify-center shadow-lg shadow-red-600/25 shrink-0 ring-2 ring-red-100">
-                <Gift className="w-5 h-5 sm:w-6 sm:h-6" />
-                <span className="absolute -top-1 -right-1 text-xs">✨</span>
+            <div className="flex items-center gap-2 sm:gap-3.5 min-w-0">
+              <div className="relative w-9 h-9 sm:w-12 sm:h-12 rounded-2xl bg-gradient-to-br from-red-600 via-rose-600 to-amber-600 text-white flex items-center justify-center shadow-lg shadow-red-600/25 shrink-0 ring-2 ring-red-100">
+                <Gift className="w-4 h-4 sm:w-6 sm:h-6" />
+                <span className="absolute -top-1 -right-1 text-[10px] sm:text-xs">✨</span>
               </div>
               <div className="min-w-0">
                 <div className="flex items-center gap-2">
-                  <h1 className="text-base sm:text-xl font-extrabold tracking-tight text-slate-900 festive-font truncate">
+                  <h1 className="text-sm sm:text-xl font-extrabold tracking-tight text-slate-900 festive-font truncate">
                     Natale in Famiglia
                   </h1>
-                  <span className="hidden md:inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-200 shrink-0">
+                  <span className="hidden lg:inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-200 shrink-0">
                     <span>🎄</span>
                     <span>
                       {daysToChristmas === 0
@@ -63,22 +67,35 @@ export const Navbar: React.FC<NavbarProps> = ({
                     </span>
                   </span>
                 </div>
-                <p className="text-[11px] sm:text-xs text-slate-500 truncate">
-                  Lista dei desideri condivisa • <span className="text-emerald-700 font-semibold">Live</span>
+                <p className="text-[10px] sm:text-xs text-slate-500 truncate hidden xs:block sm:block">
+                  Lista dei desideri • <span className="text-emerald-700 font-semibold">Live</span>
                 </p>
               </div>
             </div>
 
             {/* Azioni Navbar */}
-            <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
-              {/* Pulsante Guida "Come funziona" ben visibile */}
+            <div className="flex items-center gap-1 sm:gap-2 shrink-0">
+              {/* Pulsante SCARICA APP (nella barra in alto) */}
+              {!isAppInstalled && (
+                <button
+                  onClick={onInstallApp}
+                  title="Scarica e installa la Web App sul tuo dispositivo"
+                  className="flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-3.5 py-1.5 sm:py-2 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white text-[11px] sm:text-xs font-extrabold shadow-sm shadow-emerald-600/20 transition-all active:scale-95"
+                >
+                  <Download className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0 stroke-[2.5]" />
+                  <span>Scarica App</span>
+                </button>
+              )}
+
+              {/* Pulsante Guida "Come funziona" */}
               <button
                 onClick={onOpenGuide}
                 title="Scopri come funziona l'app"
-                className="flex items-center gap-1.5 px-2.5 sm:px-3.5 py-2 rounded-xl bg-amber-50 hover:bg-amber-100/80 text-amber-900 border border-amber-200/90 text-xs font-bold transition-all active:scale-95"
+                className="flex items-center gap-1 px-2 sm:px-3 py-1.5 sm:py-2 rounded-xl bg-amber-50 hover:bg-amber-100/80 text-amber-900 border border-amber-200/90 text-[11px] sm:text-xs font-bold transition-all active:scale-95"
               >
-                <HelpCircle className="w-4 h-4 text-amber-600 shrink-0" />
-                <span>Come funziona</span>
+                <HelpCircle className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-amber-600 shrink-0" />
+                <span className="hidden md:inline">Come funziona</span>
+                <span className="md:hidden">Guida</span>
               </button>
 
               {/* Profilo Utente & Personalizza */}
@@ -86,10 +103,10 @@ export const Navbar: React.FC<NavbarProps> = ({
                 <button
                   onClick={onOpenEditProfile}
                   title="Personalizza la tua emoji, colore e motto"
-                  className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 sm:py-2 rounded-xl bg-slate-100/90 hover:bg-slate-200/70 border border-slate-200/80 text-slate-800 text-xs font-bold transition-all active:scale-95"
+                  className="flex items-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-1.5 sm:py-2 rounded-xl bg-slate-100/90 hover:bg-slate-200/70 border border-slate-200/80 text-slate-800 text-xs font-bold transition-all active:scale-95"
                 >
-                  <span className="text-base leading-none">{currentUser.avatar}</span>
-                  <span className="max-w-[68px] sm:max-w-[110px] truncate">{currentUser.name}</span>
+                  <span className="text-sm sm:text-base leading-none">{currentUser.avatar}</span>
+                  <span className="max-w-[54px] sm:max-w-[100px] truncate">{currentUser.name}</span>
                   <Palette className="w-3.5 h-3.5 text-rose-500 hidden sm:inline shrink-0" />
                 </button>
               )}
@@ -99,10 +116,10 @@ export const Navbar: React.FC<NavbarProps> = ({
                 <button
                   onClick={onOpenAdmin}
                   title="Pannello Admin di Leo"
-                  className="flex items-center gap-1 px-2.5 py-2 rounded-xl bg-gradient-to-r from-amber-500 to-yellow-600 hover:from-amber-600 hover:to-yellow-700 text-white text-xs font-bold shadow-sm transition-transform active:scale-95"
+                  className="flex items-center gap-1 px-2 sm:px-2.5 py-1.5 sm:py-2 rounded-xl bg-gradient-to-r from-amber-500 to-yellow-600 hover:from-amber-600 hover:to-yellow-700 text-white text-xs font-bold shadow-sm transition-transform active:scale-95"
                 >
                   <Crown className="w-3.5 h-3.5" />
-                  <span className="hidden lg:inline">Admin</span>
+                  <span className="hidden xl:inline">Admin</span>
                 </button>
               )}
 
@@ -110,7 +127,7 @@ export const Navbar: React.FC<NavbarProps> = ({
               <button
                 onClick={toggleSnow}
                 title={snowing ? 'Disattiva effetto neve' : 'Attiva effetto neve'}
-                className={`p-2 rounded-xl border transition-all ${
+                className={`p-1.5 sm:p-2 rounded-xl border transition-all hidden sm:flex ${
                   snowing
                     ? 'bg-sky-50 border-sky-200 text-sky-600 shadow-2xs'
                     : 'bg-slate-50 border-slate-200 text-slate-400 hover:text-slate-600'
@@ -123,7 +140,7 @@ export const Navbar: React.FC<NavbarProps> = ({
               <button
                 onClick={onOpenAddModal}
                 disabled={!currentMember}
-                className="hidden sm:flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-white font-bold shadow-md shadow-red-600/20 bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-700 hover:to-rose-700 transition-all text-xs sm:text-sm active:scale-95"
+                className="hidden sm:flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-white font-bold shadow-md shadow-red-600/20 bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-700 hover:to-rose-700 transition-all text-xs sm:text-sm active:scale-95"
               >
                 <Plus className="w-4 h-4 stroke-[2.5]" />
                 <span>Aggiungi Desiderio</span>

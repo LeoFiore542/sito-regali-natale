@@ -21,6 +21,7 @@ import { WhoAreYouModal } from './components/WhoAreYouModal';
 import { EditProfileModal } from './components/EditProfileModal';
 import { AdminPanelModal } from './components/AdminPanelModal';
 import { HowItWorksModal } from './components/HowItWorksModal';
+import { InstallAppModal } from './components/InstallAppModal';
 import { SnowEffect } from './components/SnowEffect';
 import {
   Plus,
@@ -63,6 +64,71 @@ export const App: React.FC = () => {
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [giftToEdit, setGiftToEdit] = useState<GiftItem | null>(null);
   const [isMembersModalOpen, setIsMembersModalOpen] = useState(false);
+  const [isInstallModalOpen, setIsInstallModalOpen] = useState(false);
+  const [deferredPwaPrompt, setDeferredPwaPrompt] = useState<any>(() => {
+    return (window as any).__deferredPwaPrompt || null;
+  });
+  const [isAppInstalled, setIsAppInstalled] = useState(() => {
+    return (
+      window.matchMedia('(display-mode: standalone)').matches ||
+      (window.navigator as any).standalone === true
+    );
+  });
+
+  // Gestione evento di installazione Web App (PWA)
+  useEffect(() => {
+    const syncGlobalPrompt = () => {
+      if ((window as any).__deferredPwaPrompt) {
+        setDeferredPwaPrompt((window as any).__deferredPwaPrompt);
+      }
+    };
+
+    const handleBeforeInstallPrompt = (e: Event) => {
+      e.preventDefault();
+      (window as any).__deferredPwaPrompt = e;
+      setDeferredPwaPrompt(e);
+    };
+
+    const handleAppInstalled = () => {
+      (window as any).__deferredPwaPrompt = null;
+      setDeferredPwaPrompt(null);
+      setIsAppInstalled(true);
+      setIsInstallModalOpen(false);
+    };
+
+    syncGlobalPrompt();
+    window.addEventListener('pwa-prompt-ready', syncGlobalPrompt);
+    window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+    window.addEventListener('appinstalled', handleAppInstalled);
+
+    return () => {
+      window.removeEventListener('pwa-prompt-ready', syncGlobalPrompt);
+      window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+      window.removeEventListener('appinstalled', handleAppInstalled);
+    };
+  }, []);
+
+  const triggerNativePwaInstall = async () => {
+    if (!deferredPwaPrompt) return;
+    try {
+      await deferredPwaPrompt.prompt();
+      const choice = await deferredPwaPrompt.userChoice;
+      if (choice && choice.outcome === 'accepted') {
+        (window as any).__deferredPwaPrompt = null;
+        setDeferredPwaPrompt(null);
+      }
+    } catch (err) {
+      console.warn('Errore prompt installazione:', err);
+    }
+  };
+
+  const handleInstallAppClick = async () => {
+    if (deferredPwaPrompt) {
+      await triggerNativePwaInstall();
+    } else {
+      setIsInstallModalOpen(true);
+    }
+  };
 
   // Caricamento iniziale & Controllo Reset Link (?reset=1)
   useEffect(() => {
@@ -356,6 +422,8 @@ export const App: React.FC = () => {
           setIsAddModalOpen(true);
         }}
         onOpenGuide={() => setIsGuideOpen(true)}
+        onInstallApp={handleInstallAppClick}
+        isAppInstalled={isAppInstalled}
         snowing={snowing}
         toggleSnow={() => setSnowing(!snowing)}
         totalGiftsCount={gifts.length}
@@ -756,6 +824,15 @@ export const App: React.FC = () => {
         isOpen={isGuideOpen}
         onClose={() => setIsGuideOpen(false)}
         userName={loggedUser?.name}
+      />
+
+      {/* Modale Scarica Web App (PWA) */}
+      <InstallAppModal
+        isOpen={isInstallModalOpen}
+        onClose={() => setIsInstallModalOpen(false)}
+        canInstallNative={Boolean(deferredPwaPrompt)}
+        onTriggerNativeInstall={triggerNativePwaInstall}
+        isAlreadyInstalled={isAppInstalled}
       />
 
       {/* Modale Personalizzazione Profilo */}
