@@ -1,5 +1,16 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { FamilyMember, GiftItem } from './types';
+import {
+  FamilyMember,
+  GiftItem,
+  ReservationMode,
+  GiftParticipant,
+  isUserRecipientOfGift,
+  isUserInMemberOrGroup,
+  getGroupMembers,
+  getGiftParticipants,
+  getEffectiveReservationMode,
+  isUserParticipating,
+} from './types';
 import {
   loadInitialData,
   subscribeToGifts,
@@ -32,11 +43,12 @@ import {
   Gift,
   X,
   HelpCircle,
+  Users,
 } from 'lucide-react';
 
 const CURRENT_USER_KEY = 'natale_logged_user_id';
 
-type AvailabilityFilter = 'all' | 'available' | 'reserved';
+type AvailabilityFilter = 'all' | 'available' | 'split' | 'reserved';
 
 export const App: React.FC = () => {
   const [members, setMembers] = useState<FamilyMember[]>([]);
@@ -141,7 +153,7 @@ export const App: React.FC = () => {
 
       const savedUser = hasResetParam ? null : localStorage.getItem(CURRENT_USER_KEY);
 
-      if (savedUser && initialMembers.some((m) => m.id === savedUser)) {
+      if (savedUser && initialMembers.some((m) => !m.isGroup && m.id === savedUser)) {
         setCurrentUserId(savedUser);
         setSelectedMemberId(savedUser);
         setIsWhoAreYouOpen(false);
@@ -209,11 +221,15 @@ export const App: React.FC = () => {
     setMembers((prev) => prev.map((m) => (m.id === updated.id ? updated : m)));
   };
 
-  // Elimina membro
+  // Elimina membro o gruppo
   const handleDeleteMember = async (id: string) => {
     if (id === currentUserId) {
       alert('Non puoi eliminare il tuo stesso profilo.');
       return;
+    }
+    const giftsOfMember = gifts.filter((g) => g.memberId === id);
+    for (const g of giftsOfMember) {
+      await removeGiftStorage(g.id);
     }
     await removeMemberStorage(id);
     setMembers((prev) => prev.filter((m) => m.id !== id));
@@ -253,28 +269,146 @@ export const App: React.FC = () => {
     setGifts((prev) => prev.filter((g) => g.id !== id));
   };
 
-  // Toggle "Prenotato / Ci penso io"
-  const handleToggleReserve = async (gift: GiftItem) => {
-    if (gift.memberId === currentUserId) {
-      alert('Non puoi prenotare i tuoi stessi regali! Lascia che ci pensi la famiglia 🎅🎁');
+  // Prenota un regalo libero scegliendo tra "Da solo (chiuso)" o "Dividi la spesa (aperto)"
+  const handleReserveGift = async (gift: GiftItem, mode: ReservationMode) => {
+    if (isUserRecipientOfGift(currentUserId, gift, members)) {
+      alert('Non puoi prenotare i tuoi stessi regali (o i regali del tuo gruppo)! Lascia che ci pensi la famiglia 🎅🎁');
       return;
     }
 
     const activeUser = members.find((m) => m.id === currentUserId);
+    const participant: GiftParticipant = {
+      memberId: activeUser?.id || '',
+      name: activeUser?.name || 'Un familiare',
+      avatar: activeUser?.avatar,
+      joinedAt: Date.now(),
+    };
 
-    if (gift.reservedBy) {
-      const updated: GiftItem = { ...gift, reservedBy: null };
-      await saveGift(updated);
-      setGifts((prev) => prev.map((g) => (g.id === gift.id ? updated : g)));
-    } else {
-      const reserverName = activeUser?.name || 'Un familiare';
-      const updated: GiftItem = { ...gift, reservedBy: reserverName };
-      await saveGift(updated);
-      setGifts((prev) => prev.map((g) => (g.id === gift.id ? updated : g)));
-    }
+    const updated: GiftItem = {
+      ...gift,
+      reservationMode: mode,
+      participants: [participant],
+      reservedBy: participant.name,
+    };
+
+    await saveGift(updated);
+    setGifts((prev) => prev.map((g) => (g.id === gift.id ? updated : g)));
   };
 
+  // Unisciti a un regalo già aperto per dividere la spesa
+  const handleJoinSplitGift = async (gift: GiftItem) => {
+    if (isUserRecipientOfGift(currentUserId, gift, members)) {
+      alert('Non puoi partecipare ai tuoi stessi regali! 🎅🎁');
+      return;
+    }
+
+    const mode = getEffectiveReservationMode(gift);
+    if (mode === 'solo') return;
+
+    const activeUser = members.find((m) => m.id === currentUserId);
+    if (isUserParticipating(gift, currentUserId, activeUser?.name)) {
+      return;
+    }
+
+    const existing = getGiftParticipants(gift);
+    const newParticipant: GiftParticipant = {
+      memberId: activeUser?.id || '',
+      name: activeUser?.name || 'Un familiare',
+      avatar: activeUser?.avatar,
+      joinedAt: Date.now(),
+    };
+
+    const nextParticipants = [...existing, newParticipant];
+    const updated: GiftItem = {
+      ...gift,
+      reservationMode: 'split',
+      participants: nextParticipants,
+      reservedBy: nextParticipants.map((p) => p.name).join(', '),
+    };
+
+    await saveGift(updated);
+    setGifts((prev) => prev.map((g) => (g.id === gift.id ? updated : g)));
+  };
+
+  // Ritirati dalla prenotazione / divisione della spesa
+  const handleLeaveGift = async (gift: GiftItem) => {
+    const activeUser = members.find((m) => m.id === currentUserId);
+    const existing = getGiftParticipants(gift);
+
+    const remaining = existing.filter((p) => {
+      if (currentUserId && p.memberId && p.memberId === currentUserId) return false;
+      if (
+        activeUser?.name &&
+        p.name.trim().toLowerCase() === activeUser.name.trim().toLowerCase()
+      ) {
+        return false;
+      }
+      return true;
+    });
+
+    const updated: GiftItem =
+      remaining.length === 0
+        ? {
+            ...gift,
+            reservationMode: null,
+            participants: [],
+            reservedBy: null,
+          }
+        : {
+            ...gift,
+            reservationMode: 'split',
+            participants: remaining,
+            reservedBy: remaining.map((p) => p.name).join(', '),
+          };
+
+    await saveGift(updated);
+    setGifts((prev) => prev.map((g) => (g.id === gift.id ? updated : g)));
+  };
+
+  // Cambia modalità tra "Ci penso io (da solo)" e "Insieme (aperto)"
+  const handleSwitchReservationMode = async (gift: GiftItem, newMode: ReservationMode) => {
+    const existing = getGiftParticipants(gift);
+    const updated: GiftItem = {
+      ...gift,
+      reservationMode: newMode,
+      participants: existing,
+      reservedBy: existing.map((p) => p.name).join(', '),
+    };
+    await saveGift(updated);
+    setGifts((prev) => prev.map((g) => (g.id === gift.id ? updated : g)));
+  };
+
+  // Utente loggato fisso
+  const loggedUser = useMemo(() => {
+    return members.find((m) => m.id === currentUserId) || null;
+  }, [members, currentUserId]);
+
+  // È Leo l'admin del sito?
+  const isLeoAdmin = useMemo(() => {
+    if (!loggedUser) return false;
+    return loggedUser.id === 'leo' || loggedUser.name.trim().toLowerCase() === 'leo';
+  }, [loggedUser]);
+
   // Funzioni ESCLUSIVE Admin Leo
+  const handleCreateGroup = async (
+    groupName: string,
+    avatar: string,
+    memberIds: string[]
+  ) => {
+    if (!isLeoAdmin || memberIds.length < 2) return;
+    const newGroup: FamilyMember = {
+      id: `group-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+      name: groupName.trim(),
+      avatar: avatar || '🎁',
+      bannerTheme: 'royal-purple',
+      isGroup: true,
+      groupMemberIds: memberIds,
+      createdAt: Date.now(),
+    };
+    await saveMember(newGroup);
+    setMembers((prev) => [...prev, newGroup]);
+  };
+
   const handleResetThisDevice = () => {
     localStorage.removeItem(CURRENT_USER_KEY);
     setCurrentUserId(null);
@@ -297,6 +431,8 @@ export const App: React.FC = () => {
     const updated: GiftItem = {
       ...target,
       reservedBy: null,
+      reservationMode: null,
+      participants: [],
     };
     await saveGift(updated);
     setGifts((prev) => prev.map((g) => (g.id === giftId ? updated : g)));
@@ -307,37 +443,34 @@ export const App: React.FC = () => {
       await removeGiftStorage(g.id);
     }
     setGifts([]);
+    // Rimuove anche eventuali gruppi personalizzati creati
+    const extraMembers = members.filter(
+      (m) => !OFFICIAL_FAMILY_MEMBERS.some((off) => off.id === m.id)
+    );
+    for (const extra of extraMembers) {
+      await removeMemberStorage(extra.id);
+    }
     for (const m of OFFICIAL_FAMILY_MEMBERS) {
       await saveMember(m);
     }
     setMembers(OFFICIAL_FAMILY_MEMBERS);
+    setSelectedMemberId('all');
     setIsAdminPanelOpen(false);
     alert('Database ripristinato ai 10 membri ufficiali di famiglia.');
   };
 
-  // Membro correntemente visualizzato
+  // Membro o Gruppo correntemente visualizzato
   const currentMember = useMemo(() => {
     if (selectedMemberId === 'all') return null;
     return members.find((m) => m.id === selectedMemberId) || null;
   }, [members, selectedMemberId]);
 
-  // Utente loggato fisso
-  const loggedUser = useMemo(() => {
-    return members.find((m) => m.id === currentUserId) || null;
-  }, [members, currentUserId]);
+  // Sto guardando la MIA lista personale (o un gruppo di cui faccio parte)?
+  const isViewingMyOwnList = useMemo(() => {
+    return isUserInMemberOrGroup(currentUserId, currentMember);
+  }, [currentUserId, currentMember]);
 
-  // Sto guardando la MIA lista personale?
-  const isViewingMyOwnList = Boolean(
-    currentMember && currentUserId && currentMember.id === currentUserId
-  );
-
-  // È Leo l'admin del sito?
-  const isLeoAdmin = useMemo(() => {
-    if (!loggedUser) return false;
-    return loggedUser.id === 'leo' || loggedUser.name.trim().toLowerCase() === 'leo';
-  }, [loggedUser]);
-
-  // Filtra regali (con deduplicazione sicura e protezione anti-spoiler sui propri regali)
+  // Filtra regali (con deduplicazione sicura e protezione anti-spoiler sui propri regali e gruppi)
   const filteredGifts = useMemo(() => {
     const seen = new Set<string>();
     return gifts.filter((gift) => {
@@ -349,10 +482,11 @@ export const App: React.FC = () => {
       }
 
       if (!isViewingMyOwnList && availabilityFilter !== 'all') {
-        const isMine = gift.memberId === currentUserId;
-        const effectivelyReserved = !isMine && Boolean(gift.reservedBy);
-        if (availabilityFilter === 'available' && effectivelyReserved) return false;
-        if (availabilityFilter === 'reserved' && !effectivelyReserved) return false;
+        const isMine = isUserRecipientOfGift(currentUserId, gift, members);
+        const mode = isMine ? null : getEffectiveReservationMode(gift);
+        if (availabilityFilter === 'available' && mode !== null) return false;
+        if (availabilityFilter === 'split' && mode !== 'split') return false;
+        if (availabilityFilter === 'reserved' && mode === null) return false;
       }
 
       if (searchQuery.trim()) {
@@ -363,12 +497,22 @@ export const App: React.FC = () => {
       }
       return true;
     });
-  }, [gifts, selectedMemberId, searchQuery, availabilityFilter, isViewingMyOwnList, currentUserId]);
+  }, [
+    gifts,
+    selectedMemberId,
+    searchQuery,
+    availabilityFilter,
+    isViewingMyOwnList,
+    currentUserId,
+    members,
+  ]);
 
   // Tema del banner attivo
   const activeBannerTheme = useMemo(() => {
     if (currentMember) {
-      return getBannerTheme(currentMember.bannerTheme);
+      return getBannerTheme(
+        currentMember.bannerTheme || (currentMember.isGroup ? 'royal-purple' : undefined)
+      );
     }
     if (loggedUser) {
       return getBannerTheme(loggedUser.bannerTheme);
@@ -380,6 +524,20 @@ export const App: React.FC = () => {
     setProfileToEdit(member);
     setIsEditProfileOpen(true);
   };
+
+  // Determina la lista di default quando si clicca "+ Aggiungi"
+  const defaultAddGiftMemberId = useMemo(() => {
+    if (
+      currentMember?.isGroup &&
+      (isLeoAdmin || isUserInMemberOrGroup(currentUserId, currentMember))
+    ) {
+      return currentMember.id;
+    }
+    if (currentUserId && members.some((m) => m.id === currentUserId)) {
+      return currentUserId;
+    }
+    return selectedMemberId === 'all' ? (members[0]?.id ?? '') : selectedMemberId;
+  }, [currentMember, isLeoAdmin, currentUserId, members, selectedMemberId]);
 
   if (isLoading) {
     return (
@@ -393,6 +551,10 @@ export const App: React.FC = () => {
       </div>
     );
   }
+
+  const currentGroupMembers = currentMember?.isGroup
+    ? getGroupMembers(currentMember, members)
+    : [];
 
   return (
     <div className="min-h-screen flex flex-col text-slate-800 relative selection:bg-red-200">
@@ -439,7 +601,7 @@ export const App: React.FC = () => {
 
       {/* Contenuto Principale */}
       <main className="max-w-4xl mx-auto px-3 sm:px-6 py-3 sm:py-5 flex-1 w-full space-y-3 relative z-10">
-        {/* 1. Visualizzazione compatta di tutti i membri della famiglia */}
+        {/* 1. Visualizzazione compatta di tutti i membri e gruppi della famiglia */}
         <MemberSelector
           members={members}
           selectedMemberId={selectedMemberId}
@@ -457,23 +619,38 @@ export const App: React.FC = () => {
               {currentMember ? currentMember.avatar : loggedUser?.avatar || '🎄'}
             </div>
             <div className="min-w-0">
-              <h2 className="text-sm sm:text-base font-extrabold festive-font truncate">
-                {isViewingMyOwnList
-                  ? `I tuoi desideri (${currentMember?.name})`
-                  : currentMember
-                  ? `Lista di ${currentMember.name}`
-                  : `Tutti i regali della famiglia`}
-              </h2>
+              <div className="flex items-center gap-1.5 flex-wrap">
+                <h2 className="text-sm sm:text-base font-extrabold festive-font truncate">
+                  {currentMember?.isGroup
+                    ? `Regalo Condiviso: ${currentMember.name}`
+                    : isViewingMyOwnList
+                    ? `I tuoi desideri (${currentMember?.name})`
+                    : currentMember
+                    ? `Lista di ${currentMember.name}`
+                    : `Tutti i regali della famiglia`}
+                </h2>
+                {currentMember?.isGroup && (
+                  <span className="px-2 py-0.5 rounded-full bg-white/20 text-[10px] font-extrabold uppercase tracking-wider">
+                    Gruppo ({currentGroupMembers.map((m) => m.name).join(', ')})
+                  </span>
+                )}
+              </div>
               <p className="text-[11px] text-white/90 truncate flex items-center gap-1">
                 {isViewingMyOwnList ? (
                   <>
                     <EyeOff className="w-3 h-3 text-amber-300 shrink-0" />
-                    <span>Sorpresa protetta: non vedi chi prenota</span>
+                    <span>
+                      {currentMember?.isGroup
+                        ? 'Sorpresa protetta per tutto il gruppo: non vedete chi prenota'
+                        : 'Sorpresa protetta: non vedi chi prenota'}
+                    </span>
                   </>
                 ) : (
                   <>
                     <Gift className="w-3 h-3 text-amber-300 shrink-0" />
-                    <span>Tocca un regalo in elenco per vedere foto e dettagli</span>
+                    <span>
+                      Prenota con "Ci penso io" oppure clicca "Insieme" per fare un regalo in gruppo
+                    </span>
                   </>
                 )}
               </p>
@@ -491,9 +668,9 @@ export const App: React.FC = () => {
         </section>
 
         {/* 3. Barra Filtri e Ricerca */}
-        <div className="flex items-center justify-between gap-2">
+        <div className="flex items-center justify-between gap-2 flex-wrap">
           {!isViewingMyOwnList ? (
-            <div className="flex items-center gap-1 bg-white p-1 rounded-xl border border-slate-200 shadow-sm shrink-0">
+            <div className="flex items-center gap-1 bg-white p-1 rounded-xl border border-slate-200 shadow-sm shrink-0 overflow-x-auto">
               <button
                 type="button"
                 onClick={() => setAvailabilityFilter('all')}
@@ -515,6 +692,18 @@ export const App: React.FC = () => {
                 }`}
               >
                 Liberi
+              </button>
+              <button
+                type="button"
+                onClick={() => setAvailabilityFilter('split')}
+                className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-colors flex items-center gap-1 ${
+                  availabilityFilter === 'split'
+                    ? 'bg-indigo-600 text-white'
+                    : 'text-indigo-700 hover:bg-indigo-50'
+                }`}
+              >
+                <Users className="w-3 h-3" />
+                <span>Insieme</span>
               </button>
               <button
                 type="button"
@@ -566,9 +755,11 @@ export const App: React.FC = () => {
                   key={gift.id}
                   gift={gift}
                   member={member}
+                  allMembers={members}
                   showMemberBadge={selectedMemberId === 'all'}
                   onSelect={(g) => setSelectedGiftForDetail(g)}
-                  onToggleReserve={handleToggleReserve}
+                  onReserveGift={handleReserveGift}
+                  onJoinSplitGift={handleJoinSplitGift}
                   currentUserId={currentUserId || undefined}
                   currentUserName={loggedUser?.name}
                 />
@@ -586,7 +777,9 @@ export const App: React.FC = () => {
                 {searchQuery || availabilityFilter !== 'all'
                   ? 'Nessun regalo trovato'
                   : isViewingMyOwnList
-                  ? 'La tua lista è ancora vuota'
+                  ? currentMember?.isGroup
+                    ? `La lista condivisa di ${currentMember.name} è ancora vuota`
+                    : 'La tua lista è ancora vuota'
                   : currentMember
                   ? `${currentMember.name} non ha ancora inserito desideri`
                   : 'Nessun desiderio ancora inserito'}
@@ -595,7 +788,7 @@ export const App: React.FC = () => {
                 {searchQuery || availabilityFilter !== 'all'
                   ? 'Prova a rimuovere i filtri di ricerca.'
                   : isViewingMyOwnList
-                  ? 'Aggiungi il tuo primo desiderio per aiutare la famiglia!'
+                  ? 'Aggiungi il primo desiderio per aiutare la famiglia!'
                   : 'Appena verrà aggiunto un regalo comparirà in questo elenco.'}
               </p>
             </div>
@@ -612,23 +805,25 @@ export const App: React.FC = () => {
                 Mostra tutti
               </button>
             ) : (
-              <button
-                type="button"
-                onClick={() => {
-                  setGiftToEdit(null);
-                  setIsAddModalOpen(true);
-                }}
-                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-white bg-red-600 hover:bg-red-700 text-xs font-bold shadow-sm transition-colors"
-              >
-                <Plus className="w-4 h-4 stroke-[2.5]" />
-                <span>Aggiungi desiderio</span>
-              </button>
+              (isViewingMyOwnList || isLeoAdmin || !currentMember) && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setGiftToEdit(null);
+                    setIsAddModalOpen(true);
+                  }}
+                  className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-white bg-red-600 hover:bg-red-700 text-xs font-bold shadow-sm transition-colors"
+                >
+                  <Plus className="w-4 h-4 stroke-[2.5]" />
+                  <span>Aggiungi desiderio</span>
+                </button>
+              )
             )}
           </div>
         )}
       </main>
 
-      {/* Scheda Popup per ulteriori dettagli (foto e descrizione) */}
+      {/* Scheda Popup per ulteriori dettagli (foto, descrizione e partecipazione) */}
       <GiftDetailModal
         gift={activeDetailGift}
         member={
@@ -636,6 +831,7 @@ export const App: React.FC = () => {
             ? members.find((m) => m.id === activeDetailGift.memberId)
             : undefined
         }
+        allMembers={members}
         isOpen={Boolean(activeDetailGift)}
         onClose={() => setSelectedGiftForDetail(null)}
         onEdit={(g) => {
@@ -643,7 +839,10 @@ export const App: React.FC = () => {
           setIsAddModalOpen(true);
         }}
         onDelete={handleDeleteGift}
-        onToggleReserve={handleToggleReserve}
+        onReserveGift={handleReserveGift}
+        onJoinSplitGift={handleJoinSplitGift}
+        onLeaveGift={handleLeaveGift}
+        onSwitchReservationMode={handleSwitchReservationMode}
         currentUserId={currentUserId || undefined}
         currentUserName={loggedUser?.name}
       />
@@ -693,6 +892,9 @@ export const App: React.FC = () => {
           onClearAllGifts={handleClearAllGifts}
           onUnlockGiftReserve={handleUnlockGiftReserve}
           onResetDatabaseFactory={handleResetDatabaseFactory}
+          onCreateGroup={handleCreateGroup}
+          onDeleteGroup={handleDeleteMember}
+          onSelectGroupList={(groupId) => handleSelectMember(groupId)}
         />
       )}
 
@@ -704,13 +906,10 @@ export const App: React.FC = () => {
           setGiftToEdit(null);
         }}
         onSave={handleSaveGift}
-        initialMemberId={
-          currentUserId && members.some((m) => m.id === currentUserId)
-            ? currentUserId
-            : selectedMemberId === 'all'
-            ? (members[0]?.id ?? '')
-            : selectedMemberId
-        }
+        initialMemberId={defaultAddGiftMemberId}
+        members={members}
+        currentUserId={currentUserId}
+        isAdmin={isLeoAdmin}
         giftToEdit={giftToEdit}
       />
 

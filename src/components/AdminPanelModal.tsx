@@ -1,5 +1,11 @@
 import React, { useState } from 'react';
-import { FamilyMember, GiftItem } from '../types';
+import {
+  FamilyMember,
+  GiftItem,
+  getGiftParticipants,
+  getEffectiveReservationMode,
+  getGroupMembers,
+} from '../types';
 import {
   ShieldAlert,
   RotateCcw,
@@ -10,6 +16,9 @@ import {
   Gift,
   KeyRound,
   Trash2,
+  Users,
+  Plus,
+  ExternalLink,
 } from 'lucide-react';
 
 interface AdminPanelModalProps {
@@ -21,20 +30,74 @@ interface AdminPanelModalProps {
   onClearAllGifts: () => void;
   onUnlockGiftReserve: (giftId: string) => void;
   onResetDatabaseFactory: () => void;
+  onCreateGroup: (groupName: string, avatar: string, memberIds: string[]) => Promise<void> | void;
+  onDeleteGroup: (groupId: string) => Promise<void> | void;
+  onSelectGroupList?: (groupId: string) => void;
 }
+
+const GROUP_AVATARS = ['🎁', '👨‍👩‍👧', '💑', '🏠', '🎄', '🥂', '✨', '🛋️', '✈️', '🎅'];
 
 export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
   isOpen,
   onClose,
+  members,
   gifts,
   onResetThisDevice,
   onClearAllGifts,
   onUnlockGiftReserve,
   onResetDatabaseFactory,
+  onCreateGroup,
+  onDeleteGroup,
+  onSelectGroupList,
 }) => {
   const [copiedLink, setCopiedLink] = useState(false);
+  const [selectedGroupMemberIds, setSelectedGroupMemberIds] = useState<string[]>([]);
+  const [customGroupName, setCustomGroupName] = useState('');
+  const [groupAvatar, setGroupAvatar] = useState('🎁');
+  const [isCreatingGroup, setIsCreatingGroup] = useState(false);
 
   if (!isOpen) return null;
+
+  const individualMembers = members.filter((m) => !m.isGroup);
+  const existingGroups = members.filter((m) => m.isGroup);
+
+  // Genera nome suggerito automatico in base ai membri selezionati
+  const selectedMemberObjects = selectedGroupMemberIds
+    .map((id) => individualMembers.find((m) => m.id === id))
+    .filter((m): m is FamilyMember => Boolean(m));
+
+  const suggestedName =
+    selectedMemberObjects.length >= 2
+      ? selectedMemberObjects.length === 2
+        ? `${selectedMemberObjects[0].name} & ${selectedMemberObjects[1].name}`
+        : `${selectedMemberObjects
+            .slice(0, -1)
+            .map((m) => m.name)
+            .join(', ')} & ${selectedMemberObjects[selectedMemberObjects.length - 1].name}`
+      : '';
+
+  const toggleMemberForGroup = (memberId: string) => {
+    setSelectedGroupMemberIds((prev) =>
+      prev.includes(memberId) ? prev.filter((id) => id !== memberId) : [...prev, memberId]
+    );
+  };
+
+  const handleCreateGroupSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (selectedGroupMemberIds.length < 2 || isCreatingGroup) return;
+    const finalName = customGroupName.trim() || suggestedName;
+    if (!finalName) return;
+
+    setIsCreatingGroup(true);
+    try {
+      await onCreateGroup(finalName, groupAvatar, selectedGroupMemberIds);
+      setSelectedGroupMemberIds([]);
+      setCustomGroupName('');
+      setGroupAvatar('🎁');
+    } finally {
+      setIsCreatingGroup(false);
+    }
+  };
 
   // Genera link di reset per i familiari
   const resetLink = `${window.location.origin}${window.location.pathname}?reset=1`;
@@ -45,7 +108,7 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
     setTimeout(() => setCopiedLink(false), 2500);
   };
 
-  const reservedGifts = gifts.filter((g) => !!g.reservedBy);
+  const reservedGifts = gifts.filter((g) => getGiftParticipants(g).length > 0);
 
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-3 sm:p-4">
@@ -67,7 +130,7 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
                 </span>
               </div>
               <p className="text-xs text-amber-100">
-                Gestione reset, sblocchi e manutenzione della famiglia
+                Gruppi regali condivisi, sblocchi e gestione famiglia
               </p>
             </div>
           </div>
@@ -80,8 +143,168 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
         </div>
 
         {/* Content */}
-        <div className="p-6 space-y-6 max-h-[75vh] overflow-y-auto">
+        <div className="p-5 sm:p-6 space-y-6 max-h-[75vh] overflow-y-auto">
           
+          {/* Sezione 0 (NUOVA): Crea Gruppo per Regalo Condiviso (Solo Admin) */}
+          <div className="p-4 rounded-2xl bg-purple-50/70 border border-purple-200 space-y-3.5">
+            <div className="flex items-start gap-2.5">
+              <Users className="w-5 h-5 text-purple-700 shrink-0 mt-0.5" />
+              <div>
+                <h4 className="text-sm font-bold text-purple-950">
+                  Gruppi di persone che chiedono un regalo condiviso
+                </h4>
+                <p className="text-xs text-purple-800/90 leading-relaxed mt-0.5">
+                  Crea una lista condivisa tra 2 o più familiari (es. <em>Roberto &amp; Rita</em>). Chi fa parte del gruppo (o tu da Admin) può aggiungere i regali desiderati insieme e l'effetto sorpresa sarà protetto per tutti i membri del gruppo!
+                </p>
+              </div>
+            </div>
+
+            <form onSubmit={handleCreateGroupSubmit} className="space-y-3 bg-white p-3.5 rounded-xl border border-purple-200/80 shadow-sm">
+              <div>
+                <label className="block text-[11px] font-extrabold uppercase tracking-wider text-purple-900 mb-1.5">
+                  1. Seleziona almeno 2 persone del gruppo ({selectedGroupMemberIds.length} selezionati)
+                </label>
+                <div className="flex flex-wrap gap-1.5">
+                  {individualMembers.map((member) => {
+                    const isSelected = selectedGroupMemberIds.includes(member.id);
+                    return (
+                      <button
+                        key={member.id}
+                        type="button"
+                        onClick={() => toggleMemberForGroup(member.id)}
+                        className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-bold transition-all border ${
+                          isSelected
+                            ? 'bg-purple-700 text-white border-purple-700 shadow-sm scale-[1.02]'
+                            : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-purple-50 hover:border-purple-300'
+                        }`}
+                      >
+                        <span>{member.avatar}</span>
+                        <span>{member.name}</span>
+                        {isSelected && <Check className="w-3 h-3 stroke-[3]" />}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {selectedGroupMemberIds.length >= 2 && (
+                <div className="space-y-3 pt-1 animate-in fade-in duration-150">
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                    <div className="sm:col-span-2">
+                      <label className="block text-[11px] font-extrabold uppercase tracking-wider text-slate-600 mb-1">
+                        2. Nome del Gruppo
+                      </label>
+                      <input
+                        type="text"
+                        value={customGroupName}
+                        onChange={(e) => setCustomGroupName(e.target.value)}
+                        placeholder={suggestedName || 'es. Roberto & Rita'}
+                        className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-purple-500/30 focus:border-purple-600 font-semibold text-slate-800"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[11px] font-extrabold uppercase tracking-wider text-slate-600 mb-1">
+                        Icona
+                      </label>
+                      <div className="flex flex-wrap gap-1">
+                        {GROUP_AVATARS.map((emoji) => (
+                          <button
+                            key={emoji}
+                            type="button"
+                            onClick={() => setGroupAvatar(emoji)}
+                            className={`w-7 h-7 rounded-lg text-sm flex items-center justify-center transition-all ${
+                              groupAvatar === emoji
+                                ? 'bg-purple-100 border-2 border-purple-600 scale-110'
+                                : 'bg-slate-50 border border-slate-200 hover:bg-slate-100'
+                            }`}
+                          >
+                            {emoji}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+
+                  <button
+                    type="submit"
+                    disabled={isCreatingGroup}
+                    className="w-full py-2.5 px-4 rounded-xl bg-purple-700 hover:bg-purple-800 text-white font-bold text-xs shadow-sm transition-colors flex items-center justify-center gap-1.5"
+                  >
+                    <Plus className="w-4 h-4 stroke-[2.5]" />
+                    <span>
+                      Crea Gruppo "{customGroupName.trim() || suggestedName}"
+                    </span>
+                  </button>
+                </div>
+              )}
+            </form>
+
+            {/* Elenco Gruppi già creati */}
+            {existingGroups.length > 0 && (
+              <div className="space-y-1.5 pt-1">
+                <p className="text-[11px] font-extrabold uppercase tracking-wider text-purple-900">
+                  Gruppi Attivi ({existingGroups.length})
+                </p>
+                <div className="space-y-1.5">
+                  {existingGroups.map((group) => {
+                    const gMembers = getGroupMembers(group, members);
+                    const gGiftCount = gifts.filter((g) => g.memberId === group.id).length;
+
+                    return (
+                      <div
+                        key={group.id}
+                        className="p-2.5 rounded-xl bg-white border border-purple-200 flex items-center justify-between gap-2 text-xs"
+                      >
+                        <div className="flex items-center gap-2 min-w-0">
+                          <span className="text-lg shrink-0">{group.avatar}</span>
+                          <div className="min-w-0">
+                            <p className="font-bold text-slate-900 truncate">{group.name}</p>
+                            <p className="text-[11px] text-slate-500 truncate">
+                              Membri: {gMembers.map((m) => m.name).join(', ')} • {gGiftCount}{' '}
+                              {gGiftCount === 1 ? 'regalo' : 'regali'}
+                            </p>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          {onSelectGroupList && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                onSelectGroupList(group.id);
+                                onClose();
+                              }}
+                              className="px-2.5 py-1 text-[11px] font-bold text-purple-700 bg-purple-50 hover:bg-purple-100 rounded-lg border border-purple-200 transition-colors flex items-center gap-1"
+                            >
+                              <ExternalLink className="w-3 h-3" />
+                              <span>Apri</span>
+                            </button>
+                          )}
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (
+                                confirm(
+                                  `Vuoi eliminare il gruppo "${group.name}" e i regali associati?`
+                                )
+                              ) {
+                                onDeleteGroup(group.id);
+                              }
+                            }}
+                            className="p-1.5 text-red-600 hover:bg-red-50 rounded-lg border border-red-200 transition-colors"
+                            title="Elimina gruppo"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+          </div>
+
           {/* Sezione 1: Sblocca qualcuno che ha sbagliato nome */}
           <div className="p-4 rounded-2xl bg-amber-50/70 border border-amber-200 space-y-3">
             <div className="flex items-start gap-2.5">
@@ -140,7 +363,7 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
             <button
               type="button"
               onClick={() => {
-                if (confirm('Sei sicuro di voler resettare l\'utente di questo dispositivo?')) {
+                if (confirm("Sei sicuro di voler resettare l'utente di questo dispositivo?")) {
                   onResetThisDevice();
                 }
               }}
@@ -160,7 +383,7 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
                   Regali prenotati ({reservedGifts.length})
                 </h4>
                 <p className="text-xs text-emerald-850 leading-relaxed mt-0.5">
-                  Se qualcuno ha segnato "Ci penso io" per sbaglio su un regalo, puoi sbloccarlo da qui:
+                  Se qualcuno ha segnato "Ci penso io" o "Facciamolo insieme" per sbaglio, puoi liberare il regalo da qui:
                 </p>
               </div>
             </div>
@@ -170,24 +393,32 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
                 Nessun regalo attualmente prenotato.
               </p>
             ) : (
-              <div className="space-y-1.5 max-h-36 overflow-y-auto divide-y divide-emerald-100 pt-1">
-                {reservedGifts.map((gift) => (
-                  <div key={gift.id} className="pt-1.5 first:pt-0 flex items-center justify-between text-xs">
-                    <div className="truncate pr-2">
-                      <span className="font-semibold text-slate-800">{gift.title}</span>
-                      <span className="text-emerald-700 font-medium ml-1.5">
-                        (Preso da: {gift.reservedBy})
-                      </span>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => onUnlockGiftReserve(gift.id)}
-                      className="px-2 py-1 text-[11px] font-semibold text-red-600 hover:bg-red-50 rounded-lg border border-red-200 transition-colors shrink-0"
+              <div className="space-y-1.5 max-h-40 overflow-y-auto divide-y divide-emerald-100 pt-1">
+                {reservedGifts.map((gift) => {
+                  const participants = getGiftParticipants(gift);
+                  const mode = getEffectiveReservationMode(gift);
+                  const names = participants.map((p) => p.name).join(', ');
+                  return (
+                    <div
+                      key={gift.id}
+                      className="pt-1.5 first:pt-0 flex items-center justify-between text-xs gap-2"
                     >
-                      Sblocca
-                    </button>
-                  </div>
-                ))}
+                      <div className="truncate pr-2">
+                        <span className="font-semibold text-slate-800">{gift.title}</span>
+                        <span className="text-emerald-700 font-medium ml-1.5">
+                          ({mode === 'split' ? `Insieme: ${names}` : `Preso da: ${names}`})
+                        </span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => onUnlockGiftReserve(gift.id)}
+                        className="px-2 py-1 text-[11px] font-semibold text-red-600 hover:bg-red-50 rounded-lg border border-red-200 transition-colors shrink-0"
+                      >
+                        Sblocca
+                      </button>
+                    </div>
+                  );
+                })}
               </div>
             )}
           </div>
@@ -201,7 +432,7 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
                   Area Pericolo / Reset Database
                 </h4>
                 <p className="text-xs text-red-800 leading-relaxed mt-0.5">
-                  Attenzione: queste azioni cancellano i dati memorizzati in questo browser.
+                  Attenzione: queste azioni cancellano i dati memorizzati.
                 </p>
               </div>
             </div>
@@ -223,7 +454,11 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
               <button
                 type="button"
                 onClick={() => {
-                  if (confirm('ATTENZIONE: Questo ripristinerà il database alle impostazioni iniziali di fabbrica. Continuare?')) {
+                  if (
+                    confirm(
+                      'ATTENZIONE: Questo ripristinerà il database alle impostazioni iniziali di fabbrica. Continuare?'
+                    )
+                  ) {
                     onResetDatabaseFactory();
                   }
                 }}
@@ -249,3 +484,4 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({
     </div>
   );
 };
+

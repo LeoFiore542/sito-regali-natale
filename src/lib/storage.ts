@@ -29,15 +29,25 @@ export const OFFICIAL_FAMILY_MEMBERS: FamilyMember[] = [
   { id: 'giuliana', name: 'Giuliana', avatar: '🍪', createdAt: 10 },
 ];
 
-// Helper per rimuovere i campi 'undefined' che causerebbero errore in Firestore
-function sanitizeForFirestore<T extends Record<string, any>>(obj: T): Record<string, any> {
-  const clean: Record<string, any> = {};
-  for (const [key, value] of Object.entries(obj)) {
-    if (value !== undefined) {
-      clean[key] = value;
-    }
+// Helper per rimuovere i campi 'undefined' (anche annidati in array/oggetti) che causerebbero errore in Firestore
+function sanitizeValue(val: any): any {
+  if (Array.isArray(val)) {
+    return val.map(sanitizeValue).filter((v) => v !== undefined);
   }
-  return clean;
+  if (val !== null && typeof val === 'object') {
+    const cleanObj: Record<string, any> = {};
+    for (const [k, v] of Object.entries(val)) {
+      if (v !== undefined) {
+        cleanObj[k] = sanitizeValue(v);
+      }
+    }
+    return cleanObj;
+  }
+  return val;
+}
+
+function sanitizeForFirestore<T extends Record<string, any>>(obj: T): Record<string, any> {
+  return sanitizeValue(obj);
 }
 
 // Inizializza IndexedDB locale (mantenuto per cache/backup)

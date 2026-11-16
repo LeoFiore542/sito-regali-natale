@@ -30,7 +30,7 @@ export const HowItWorksModal: React.FC<HowItWorksModalProps> = ({
       emoji: '✍️',
       title: 'Aggiungi i tuoi desideri',
       description:
-        'Vai nella tua lista personale e premi il pulsante rosso "+ Aggiungi Desiderio". Scrivi il nome del regalo e, se vuoi, aggiungi una descrizione, una foto o incolla il link del negozio (il prezzo verrà rilevato in automatico!).',
+        'Vai nella tua lista personale e premi il pulsante rosso "+ Aggiungi Desiderio". Scrivi il nome del regalo e, se vuoi, aggiungi una descrizione, una foto o incolla il link del negozio.',
       badge: 'La tua lista',
       color: 'from-red-500 to-rose-600',
       lightBg: 'bg-red-50 border-red-100 text-red-900',
@@ -40,7 +40,7 @@ export const HowItWorksModal: React.FC<HowItWorksModalProps> = ({
       emoji: '👀',
       title: 'Esplora le liste dei familiari',
       description:
-        'Tocca il nome o la faccina di un parente nella barra in alto per scoprire cosa gli piacerebbe ricevere sotto l’albero. Se c’è un link, puoi cliccare su "Vedi prodotto" per aprire direttamente la pagina del negozio.',
+        'Tocca il nome o la faccina di un parente nella barra in alto per scoprire cosa gli piacerebbe ricevere sotto l’albero. Se c’è un link, puoi cliccare su "Apri link di acquisto" per aprire direttamente la pagina del negozio.',
       badge: 'Niente più dubbi',
       color: 'from-amber-500 to-orange-600',
       lightBg: 'bg-amber-50 border-amber-100 text-amber-900',
@@ -48,10 +48,10 @@ export const HowItWorksModal: React.FC<HowItWorksModalProps> = ({
     {
       number: '3',
       emoji: '🎁',
-      title: 'Prenota con "Ci penso io!"',
+      title: 'Prenota con "Ci penso io" o "Insieme"',
       description:
-        'Hai deciso di comprare quel regalo a un parente? Premi il pulsante "Ci penso io!". In questo modo tutti gli altri familiari vedranno che quel regalo è già stato preso da te e nessuno comprerà un doppione!',
-      badge: 'Zero regali doppi',
+        'Vuoi fare un regalo da solo? Premi "Ci penso io". Vuoi invece fare un regalo insieme ad altri parenti? Premi "Insieme": chi vuole potrà unirsi cliccando "Anche io!"!',
+      badge: 'Da soli o in gruppo',
       color: 'from-emerald-500 to-teal-600',
       lightBg: 'bg-emerald-50 border-emerald-100 text-emerald-900',
     },
@@ -168,10 +168,10 @@ export const HowItWorksModal: React.FC<HowItWorksModalProps> = ({
               <div className="p-3.5 rounded-2xl bg-white border border-slate-200 space-y-1">
                 <p className="text-xs font-bold text-slate-900 flex items-center gap-1.5">
                   <ShoppingBag className="w-4 h-4 text-amber-600 shrink-0" />
-                  <span>Come funziona il prezzo automatico?</span>
+                  <span>Come si partecipa a un regalo insieme?</span>
                 </p>
                 <p className="text-xs text-slate-600 leading-relaxed">
-                  Incollando il link del prodotto (es. Amazon, Zalando, ecc.), il sito legge da solo il prezzo e il nome del negozio!
+                  Se qualcuno preme <strong>"Insieme"</strong> su un regalo, tutti gli altri vedranno il pulsante <strong>"Anche io!"</strong> per unirsi.
                 </p>
               </div>
 

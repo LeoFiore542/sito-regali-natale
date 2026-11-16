@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { GiftItem } from '../types';
-import { fetchPricePreview, detectStoreName } from '../lib/pricePreview';
-import { X, Upload, Link as LinkIcon, Image as ImageIcon, Sparkles, AlertCircle, Tag, Loader2 } from 'lucide-react';
+import { FamilyMember, GiftItem, isUserInMemberOrGroup } from '../types';
+import { detectStoreName } from '../lib/pricePreview';
+import { X, Upload, Link as LinkIcon, Image as ImageIcon, Sparkles, AlertCircle, Loader2, Users, ShoppingBag } from 'lucide-react';
 import confetti from 'canvas-confetti';
 
 interface AddGiftModalProps {
@@ -9,6 +9,9 @@ interface AddGiftModalProps {
   onClose: () => void;
   onSave: (gift: Omit<GiftItem, 'id' | 'createdAt'>) => void;
   initialMemberId: string;
+  members?: FamilyMember[];
+  currentUserId?: string | null;
+  isAdmin?: boolean;
   giftToEdit?: GiftItem | null;
 }
 
@@ -17,8 +20,12 @@ export const AddGiftModal: React.FC<AddGiftModalProps> = ({
   onClose,
   onSave,
   initialMemberId,
+  members = [],
+  currentUserId,
+  isAdmin = false,
   giftToEdit,
 }) => {
+  const [targetMemberId, setTargetMemberId] = useState(initialMemberId);
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [link, setLink] = useState('');
@@ -28,66 +35,49 @@ export const AddGiftModal: React.FC<AddGiftModalProps> = ({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [uploadError, setUploadError] = useState('');
 
-  // Rilevamento automatico prezzo dal link di acquisto
-  const [detectedPrice, setDetectedPrice] = useState<string | null>(null);
-  const [detectedStore, setDetectedStore] = useState<string | null>(null);
-  const [isFetchingPrice, setIsFetchingPrice] = useState(false);
-
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Calcola a quali liste l'utente corrente può aggiungere un regalo:
+  // - La propria lista personale
+  // - Qualsiasi Gruppo di cui fa parte (oppure TUTTI i gruppi se è Admin Leo)
+  const selectableTargets = React.useMemo(() => {
+    const myPersonal = members.filter((m) => !m.isGroup && m.id === currentUserId);
+    const allowedGroups = members.filter(
+      (m) => m.isGroup && (isAdmin || isUserInMemberOrGroup(currentUserId, m))
+    );
+    const list = [...myPersonal, ...allowedGroups];
+    if (list.length === 0 && initialMemberId) {
+      const fallback = members.find((m) => m.id === initialMemberId);
+      if (fallback) return [fallback];
+    }
+    return list;
+  }, [members, currentUserId, isAdmin, initialMemberId]);
 
   // Popola se è in modalità modifica
   useEffect(() => {
     if (giftToEdit) {
+      setTargetMemberId(giftToEdit.memberId);
       setTitle(giftToEdit.title);
       setDescription(giftToEdit.description || '');
       setLink(giftToEdit.link || '');
       setImageUrl(giftToEdit.imageUrl || '');
-      setDetectedPrice(giftToEdit.price || null);
-      setDetectedStore(giftToEdit.storeName || (giftToEdit.link ? detectStoreName(giftToEdit.link) : null));
       if (giftToEdit.imageUrl?.startsWith('data:')) {
         setImageMode('upload');
       } else if (giftToEdit.imageUrl) {
         setImageMode('url');
       }
     } else {
+      setTargetMemberId(initialMemberId);
       setTitle('');
       setDescription('');
       setLink('');
       setImageUrl('');
-      setDetectedPrice(null);
-      setDetectedStore(null);
       setImageMode('upload');
     }
     setUploadError('');
-    setIsFetchingPrice(false);
-  }, [giftToEdit, isOpen]);
+  }, [giftToEdit, isOpen, initialMemberId]);
 
-  // Quando l'utente inserisce o incolla il link di acquisto, rileva in automatico il costo
-  useEffect(() => {
-    const cleanLink = link.trim();
-    if (!cleanLink || (!cleanLink.startsWith('http://') && !cleanLink.startsWith('https://') && !cleanLink.includes('.'))) {
-      setDetectedPrice(null);
-      setDetectedStore(null);
-      return;
-    }
-
-    const timer = setTimeout(async () => {
-      setIsFetchingPrice(true);
-      const store = detectStoreName(cleanLink);
-      setDetectedStore(store);
-
-      const res = await fetchPricePreview(cleanLink);
-      if (res.priceText) {
-        setDetectedPrice(res.priceText);
-      }
-      if (res.storeName) {
-        setDetectedStore(res.storeName);
-      }
-      setIsFetchingPrice(false);
-    }, 700);
-
-    return () => clearTimeout(timer);
-  }, [link]);
+  const detectedStore = link.trim() ? detectStoreName(link.trim()) : null;
 
   if (!isOpen) return null;
 
@@ -149,7 +139,8 @@ export const AddGiftModal: React.FC<AddGiftModalProps> = ({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (isSubmitting || !title.trim() || !initialMemberId) return;
+    const finalMemberId = targetMemberId || initialMemberId;
+    if (isSubmitting || !title.trim() || !finalMemberId) return;
 
     setIsSubmitting(true);
     try {
@@ -159,13 +150,12 @@ export const AddGiftModal: React.FC<AddGiftModalProps> = ({
       }
 
       await onSave({
-        memberId: initialMemberId,
+        memberId: finalMemberId,
         title: title.trim(),
         description: description.trim() || undefined,
         link: cleanLink || undefined,
         imageUrl: imageUrl.trim() || undefined,
-        price: detectedPrice || undefined,
-        storeName: detectedStore || (cleanLink ? detectStoreName(cleanLink) || undefined : undefined),
+        storeName: cleanLink ? detectStoreName(cleanLink) || undefined : undefined,
       });
 
       confetti({
@@ -211,6 +201,42 @@ export const AddGiftModal: React.FC<AddGiftModalProps> = ({
         {/* Form minimale e pulito */}
         <form onSubmit={handleSubmit} className="p-5 sm:p-6 space-y-4 overflow-y-auto flex-1 no-scrollbar">
           
+          {/* 0. Selettore Lista (Personale o Gruppo Regalo Condiviso, se disponibile) */}
+          {selectableTargets.length > 1 && (
+            <div className="p-3 rounded-2xl bg-purple-50/60 border border-purple-200/80 space-y-1.5">
+              <label className="block text-[11px] font-extrabold uppercase tracking-wider text-purple-950 flex items-center gap-1.5">
+                <Users className="w-3.5 h-3.5 text-purple-700" />
+                <span>In quale lista vuoi inserire questo regalo?</span>
+              </label>
+              <div className="flex flex-wrap gap-1.5">
+                {selectableTargets.map((target) => {
+                  const isSelected = targetMemberId === target.id;
+                  return (
+                    <button
+                      key={target.id}
+                      type="button"
+                      onClick={() => setTargetMemberId(target.id)}
+                      className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all border ${
+                        isSelected
+                          ? target.isGroup
+                            ? 'bg-purple-700 text-white border-purple-700 shadow-sm'
+                            : 'bg-red-600 text-white border-red-600 shadow-sm'
+                          : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
+                      }`}
+                    >
+                      <span>{target.avatar}</span>
+                      <span>
+                        {target.isGroup
+                          ? `${target.name} (Gruppo)`
+                          : `La tua lista (${target.name})`}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
           {/* 1. Nome del Regalo (Obbligatorio) */}
           <div>
             <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
@@ -222,7 +248,7 @@ export const AddGiftModal: React.FC<AddGiftModalProps> = ({
               autoFocus
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              placeholder="es. Maglione di lana, Kindle, Lego..."
+              placeholder="es. Maglione di lana, Kindle, Macchina del caffè..."
               className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-slate-800 text-sm focus:outline-none focus:ring-2 focus:ring-red-500/30 focus:border-red-500 font-medium"
             />
           </div>
@@ -362,7 +388,7 @@ export const AddGiftModal: React.FC<AddGiftModalProps> = ({
             )}
           </div>
 
-          {/* 4. Link di acquisto (con rilevamento automatico del costo) */}
+          {/* 4. Link di acquisto */}
           <div>
             <label className="block text-xs font-semibold uppercase tracking-wider text-slate-600 mb-1.5">
               Link di acquisto <span className="text-slate-400 font-normal lowercase">(opzionale)</span>
@@ -375,36 +401,14 @@ export const AddGiftModal: React.FC<AddGiftModalProps> = ({
                 type="text"
                 value={link}
                 onChange={(e) => setLink(e.target.value)}
-                placeholder="https://amazon.it/... o altro link online"
+                placeholder="https://amazon.it/... o altro negozio"
                 className="w-full pl-10 pr-3.5 py-2.5 rounded-xl border border-slate-200 text-slate-800 text-sm focus:outline-none focus:ring-2 focus:ring-red-500/30 focus:border-red-500"
               />
             </div>
 
-            {/* Preview automatica del costo ricavata dal link */}
-            {isFetchingPrice && (
-              <div className="mt-2 flex items-center gap-1.5 text-xs text-amber-700 bg-amber-50 border border-amber-200 px-3 py-1.5 rounded-xl animate-pulse">
-                <Loader2 className="w-3.5 h-3.5 animate-spin text-amber-600" />
-                <span>Rilevamento prezzo dal link in corso...</span>
-              </div>
-            )}
-
-            {!isFetchingPrice && detectedPrice && (
-              <div className="mt-2 flex items-center justify-between text-xs text-emerald-800 bg-emerald-50 border border-emerald-200 px-3 py-2 rounded-xl animate-in fade-in">
-                <div className="flex items-center gap-1.5 font-medium">
-                  <Tag className="w-3.5 h-3.5 text-emerald-600" />
-                  <span>Prezzo stimato:</span>
-                  <span className="font-bold text-emerald-950 text-sm">{detectedPrice}</span>
-                </div>
-                {detectedStore && (
-                  <span className="text-[11px] font-semibold text-emerald-700 bg-emerald-100/70 px-2 py-0.5 rounded-md">
-                    su {detectedStore}
-                  </span>
-                )}
-              </div>
-            )}
-
-            {!isFetchingPrice && !detectedPrice && detectedStore && (
-              <div className="mt-1.5 text-[11px] text-slate-500 flex items-center gap-1">
+            {detectedStore && (
+              <div className="mt-1.5 text-[11px] text-slate-500 flex items-center gap-1.5">
+                <ShoppingBag className="w-3 h-3 text-slate-400" />
                 <span>Negozio rilevato:</span>
                 <span className="font-semibold text-slate-700">{detectedStore}</span>
               </div>

@@ -247,52 +247,112 @@ export const SidebarDrawer: React.FC<SidebarDrawerProps> = ({
               </span>
             </button>
 
-            {/* Singoli membri */}
-            {members.map((m) => {
-              const isSelected = selectedMemberId === m.id;
-              const isMe = currentUser?.id === m.id;
-              const count = giftCounts[m.id] || 0;
+            {/* Gruppi Regalo Condiviso (se presenti) */}
+            {members.some((m) => m.isGroup) && (
+              <div className="pt-2 pb-1 space-y-1">
+                <p className="px-2 text-[10px] font-extrabold uppercase tracking-wider text-purple-600">
+                  🎁 Regali Condivisi (Gruppi)
+                </p>
+                {members
+                  .filter((m) => m.isGroup)
+                  .map((g) => {
+                    const isSelected = selectedMemberId === g.id;
+                    const isMyGroup = Boolean(
+                      currentUser && g.groupMemberIds?.includes(currentUser.id)
+                    );
+                    const count = giftCounts[g.id] || 0;
 
-              return (
-                <button
-                  key={m.id}
-                  onClick={() => {
-                    onSelectMember(m.id);
-                    onClose();
-                  }}
-                  className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-bold transition-colors ${
-                    isSelected
-                      ? 'bg-red-600 text-white'
-                      : 'text-slate-700 hover:bg-slate-100'
-                  }`}
-                >
-                  <span className="flex items-center gap-2.5 truncate">
-                    <span className="text-base">{m.avatar}</span>
-                    <span className="truncate">{m.name}</span>
-                    {isMe && (
-                      <span
-                        className={`px-1.5 py-0.5 rounded text-[9px] font-extrabold uppercase ${
-                          isSelected ? 'bg-white/20 text-white' : 'bg-red-100 text-red-700'
+                    return (
+                      <button
+                        key={g.id}
+                        onClick={() => {
+                          onSelectMember(g.id);
+                          onClose();
+                        }}
+                        className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-bold transition-colors ${
+                          isSelected
+                            ? 'bg-purple-700 text-white'
+                            : 'text-purple-950 bg-purple-50/70 hover:bg-purple-100/80 border border-purple-200/70'
                         }`}
                       >
-                        Tu
-                      </span>
-                    )}
-                  </span>
-                  <span
-                    className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                        <span className="flex items-center gap-2 truncate">
+                          <span className="text-base">{g.avatar}</span>
+                          <span className="truncate">{g.name}</span>
+                          <span
+                            className={`px-1.5 py-0.5 rounded text-[9px] font-extrabold uppercase shrink-0 ${
+                              isSelected
+                                ? 'bg-white/20 text-white'
+                                : 'bg-purple-200 text-purple-900'
+                            }`}
+                          >
+                            {isMyGroup ? 'Tuo Gruppo' : 'Gruppo'}
+                          </span>
+                        </span>
+                        <span
+                          className={`px-2 py-0.5 rounded-full text-[10px] font-bold shrink-0 ${
+                            isSelected
+                              ? 'bg-white/20 text-white'
+                              : count > 0
+                              ? 'bg-purple-600 text-white'
+                              : 'bg-white text-slate-400'
+                          }`}
+                        >
+                          {count}
+                        </span>
+                      </button>
+                    );
+                  })}
+              </div>
+            )}
+
+            {/* Singoli membri */}
+            {members
+              .filter((m) => !m.isGroup)
+              .map((m) => {
+                const isSelected = selectedMemberId === m.id;
+                const isMe = currentUser?.id === m.id;
+                const count = giftCounts[m.id] || 0;
+
+                return (
+                  <button
+                    key={m.id}
+                    onClick={() => {
+                      onSelectMember(m.id);
+                      onClose();
+                    }}
+                    className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-bold transition-colors ${
                       isSelected
-                        ? 'bg-white/20 text-white'
-                        : count > 0
-                        ? 'bg-emerald-50 text-emerald-700'
-                        : 'bg-slate-100 text-slate-400'
+                        ? 'bg-red-600 text-white'
+                        : 'text-slate-700 hover:bg-slate-100'
                     }`}
                   >
-                    {count}
-                  </span>
-                </button>
-              );
-            })}
+                    <span className="flex items-center gap-2.5 truncate">
+                      <span className="text-base">{m.avatar}</span>
+                      <span className="truncate">{m.name}</span>
+                      {isMe && (
+                        <span
+                          className={`px-1.5 py-0.5 rounded text-[9px] font-extrabold uppercase ${
+                            isSelected ? 'bg-white/20 text-white' : 'bg-red-100 text-red-700'
+                          }`}
+                        >
+                          Tu
+                        </span>
+                      )}
+                    </span>
+                    <span
+                      className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                        isSelected
+                          ? 'bg-white/20 text-white'
+                          : count > 0
+                          ? 'bg-emerald-50 text-emerald-700'
+                          : 'bg-slate-100 text-slate-400'
+                      }`}
+                    >
+                      {count}
+                    </span>
+                  </button>
+                );
+              })}
           </div>
         </div>
 

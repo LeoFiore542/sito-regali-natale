@@ -1,5 +1,6 @@
 import React from 'react';
-import { FamilyMember } from '../types';
+import { FamilyMember, isUserInMemberOrGroup } from '../types';
+import { Users } from 'lucide-react';
 
 interface MemberSelectorProps {
   members: FamilyMember[];
@@ -17,11 +18,12 @@ export const MemberSelector: React.FC<MemberSelectorProps> = ({
   giftCounts,
 }) => {
   const totalGifts = Object.values(giftCounts).reduce((a, b) => a + b, 0);
-  const myMember = members.find((m) => m.id === currentUserId);
-  const otherMembers = members.filter((m) => m.id !== currentUserId);
+  const myMember = members.find((m) => !m.isGroup && m.id === currentUserId);
+  const groupMembers = members.filter((m) => m.isGroup);
+  const otherMembers = members.filter((m) => !m.isGroup && m.id !== currentUserId);
 
   return (
-    <section className="bg-white rounded-2xl p-2.5 sm:p-3 border border-slate-200 shadow-sm">
+    <section className="bg-white rounded-2xl p-2.5 sm:p-3 border border-slate-200 shadow-sm space-y-2">
       <div className="flex flex-wrap items-center gap-1.5">
         {/* 1. LA TUA LISTA */}
         {myMember && (
@@ -71,7 +73,56 @@ export const MemberSelector: React.FC<MemberSelectorProps> = ({
           </span>
         </button>
 
-        {/* 3. TUTTI GLI ALTRI FAMILIARI */}
+        {/* 3. GRUPPI REGALO CONDIVISO (se presenti) */}
+        {groupMembers.map((group) => {
+          const isSelected = selectedMemberId === group.id;
+          const isMyGroup = isUserInMemberOrGroup(currentUserId, group);
+          const count = giftCounts[group.id] || 0;
+
+          return (
+            <button
+              key={group.id}
+              type="button"
+              onClick={() => onSelectMember(group.id)}
+              className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-bold transition-all border ${
+                isSelected
+                  ? 'bg-purple-700 text-white border-purple-700 shadow-sm'
+                  : isMyGroup
+                  ? 'bg-purple-50 text-purple-950 border-purple-300 hover:bg-purple-100'
+                  : 'bg-amber-50/70 text-amber-950 border-amber-300 hover:bg-amber-100/80'
+              }`}
+              title="Gruppo regalo condiviso"
+            >
+              <span className="text-sm leading-none">{group.avatar}</span>
+              <span>{group.name}</span>
+              <span
+                className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[9px] font-extrabold uppercase ${
+                  isSelected
+                    ? 'bg-white/20 text-white'
+                    : isMyGroup
+                    ? 'bg-purple-200/80 text-purple-900'
+                    : 'bg-amber-200/70 text-amber-900'
+                }`}
+              >
+                <Users className="w-2.5 h-2.5" />
+                <span>{isMyGroup ? 'Tuo Gruppo' : 'Gruppo'}</span>
+              </span>
+              <span
+                className={`px-1.5 py-0.5 rounded-full text-[10px] font-extrabold leading-none ${
+                  isSelected
+                    ? 'bg-white/25 text-white'
+                    : count > 0
+                    ? 'bg-purple-600 text-white'
+                    : 'bg-slate-200 text-slate-600'
+                }`}
+              >
+                {count}
+              </span>
+            </button>
+          );
+        })}
+
+        {/* 4. TUTTI GLI ALTRI FAMILIARI */}
         {otherMembers.map((member) => {
           const isSelected = selectedMemberId === member.id;
           const count = giftCounts[member.id] || 0;
@@ -107,3 +158,4 @@ export const MemberSelector: React.FC<MemberSelectorProps> = ({
     </section>
   );
 };
+

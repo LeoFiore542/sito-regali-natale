@@ -7,11 +7,15 @@ export interface PricePreviewResult {
   storeName: string | null;
 }
 
-// Riconosce i negozi più popolari
+// Riconosce i negozi più popolari (inclusi short link Amazon da smartphone)
 export function detectStoreName(url: string): string | null {
   try {
-    const hostname = new URL(url).hostname.toLowerCase();
-    if (hostname.includes('amazon')) return 'Amazon';
+    let normalized = url.trim();
+    if (!normalized.startsWith('http://') && !normalized.startsWith('https://')) {
+      normalized = `https://${normalized}`;
+    }
+    const hostname = new URL(normalized).hostname.toLowerCase();
+    if (hostname.includes('amazon') || hostname.includes('amzn.')) return 'Amazon';
     if (hostname.includes('ebay')) return 'eBay';
     if (hostname.includes('zalando')) return 'Zalando';
     if (hostname.includes('apple.com')) return 'Apple';
@@ -36,25 +40,26 @@ export function detectStoreName(url: string): string | null {
   }
 }
 
-// Cerca prezzi con pattern valuta EUR (€) nel testo
+// Cerca prezzi con pattern valuta EUR (€) nel testo (inclusi separatori migliaia)
 function extractPriceFromText(text: string): string | null {
   if (!text) return null;
 
-  // Pattern es: € 29,99 oppure 29,99 € o 120€
-  const euroRegex = /(?:€\s*([0-9]{1,4}(?:[.,][0-9]{2})?))|((?:[0-9]{1,4}(?:[.,][0-9]{2})?)\s*€)/i;
+  // Pattern es: € 29,99 | 29,99 € | 1.299,00 € | 120€
+  const euroRegex =
+    /(?:€\s*([0-9]{1,3}(?:[.,][0-9]{3})*(?:[.,][0-9]{1,2})?|[0-9]{1,5}(?:[.,][0-9]{1,2})?))|(?:([0-9]{1,3}(?:[.,][0-9]{3})*(?:[.,][0-9]{1,2})?|[0-9]{1,5}(?:[.,][0-9]{1,2})?)\s*€)/i;
   const match = text.match(euroRegex);
   if (match) {
-    const raw = match[0].trim();
-    // Pulisce e formatta
-    return raw.startsWith('€') ? raw : `${raw.replace('€', '').trim()} €`;
+    const numeric = (match[1] || match[2] || '').trim();
+    if (numeric) return `${numeric} €`;
   }
 
   // Pattern es: 29.99 EUR o EUR 29.99
-  const eurRegex = /(?:EUR\s*([0-9]{1,4}(?:[.,][0-9]{2})?))|((?:[0-9]{1,4}(?:[.,][0-9]{2})?)\s*EUR)/i;
+  const eurRegex =
+    /(?:EUR\s*([0-9]{1,3}(?:[.,][0-9]{3})*(?:[.,][0-9]{1,2})?|[0-9]{1,5}(?:[.,][0-9]{1,2})?))|(?:([0-9]{1,3}(?:[.,][0-9]{3})*(?:[.,][0-9]{1,2})?|[0-9]{1,5}(?:[.,][0-9]{1,2})?)\s*EUR)/i;
   const matchEur = text.match(eurRegex);
   if (matchEur) {
-    const val = matchEur[1] || matchEur[2];
-    return `~${val} €`;
+    const val = (matchEur[1] || matchEur[2] || '').trim();
+    if (val) return `${val} €`;
   }
 
   return null;
@@ -73,11 +78,19 @@ export async function fetchPricePreview(url: string): Promise<PricePreviewResult
   const storeName = detectStoreName(cleanUrl);
 
   try {
-    // Controller con timeout di 6 secondi per non bloccare mai la UI
+    // Controller con timeout di 9 secondi per gestire anche redirect (es. amzn.eu)
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 6000);
+    const timeoutId = setTimeout(() => controller.abort(), 9000);
 
-    const apiUrl = `https://api.microlink.io?url=${encodeURIComponent(cleanUrl)}`;
+    // Richiediamo a Microlink anche i selettori prezzo tipici di Amazon (.a-price .a-offscreen)
+    const params = new URLSearchParams({
+      url: cleanUrl,
+      meta: 'true',
+      'data.amazonPrice.selector': '.a-price .a-offscreen',
+      'data.amazonWhole.selector': '.a-price-whole',
+    });
+
+    const apiUrl = `https://api.microlink.io?${params.toString()}`;
     const response = await fetch(apiUrl, {
       signal: controller.signal,
       headers: { Accept: 'application/json' },
@@ -91,34 +104,56 @@ export async function fetchPricePreview(url: string): Promise<PricePreviewResult
     const json = await response.json();
     const data = json?.data;
 
-    // 1. Controlla se l'API ha identificato esplicitamente un campo price
-    if (data?.price) {
-      if (typeof data.price === 'string') {
-        const extracted = extractPriceFromText(data.price) || `${data.price} €`;
-        return { priceText: extracted, storeName: data.publisher || storeName };
-      }
-      if (typeof data.price === 'number') {
-        return { priceText: `${data.price.toFixed(2)} €`, storeName: data.publisher || storeName };
-      }
-      if (data.price?.amount) {
-        return { priceText: `${data.price.amount} €`, storeName: data.publisher || storeName };
+    // 1. Controlla il selettore specifico Amazon (se presente)
+    if (typeof data?.amazonPrice === 'string' && data.amazonPrice.trim()) {
+      const extracted = extractPriceFromText(data.amazonPrice);
+      if (extracted) {
+        return { priceText: extracted, storeName: storeName || data?.publisher || null };
       }
     }
 
-    // 2. Cerca nel description o nel title del prodotto (molti store mettono il prezzo nel meta tag description o titolo)
+    // 2. Controlla se Microlink ha identificato esplicitamente un campo price
+    if (data?.price) {
+      if (typeof data.price === 'string') {
+        const extracted = extractPriceFromText(data.price) || `${data.price} €`;
+        return { priceText: extracted, storeName: storeName || data.publisher || null };
+      }
+      if (typeof data.price === 'number') {
+        return {
+          priceText: `${data.price.toFixed(2).replace('.', ',')} €`,
+          storeName: storeName || data.publisher || null,
+        };
+      }
+      if (data.price?.amount) {
+        return {
+          priceText: `${data.price.amount} €`,
+          storeName: storeName || data.publisher || null,
+        };
+      }
+    }
+
+    // 3. Fallback su parte intera prezzo Amazon
+    if (typeof data?.amazonWhole === 'string' && /^[0-9.,]+$/.test(data.amazonWhole.trim())) {
+      const cleanWhole = data.amazonWhole.trim().replace(/[.,]$/, '');
+      if (cleanWhole) {
+        return { priceText: `${cleanWhole} €`, storeName: storeName || data?.publisher || null };
+      }
+    }
+
+    // 4. Cerca nel description o nel title del prodotto
     const descPrice = extractPriceFromText(data?.description || '');
     if (descPrice) {
-      return { priceText: descPrice, storeName: data?.publisher || storeName };
+      return { priceText: descPrice, storeName: storeName || data?.publisher || null };
     }
 
     const titlePrice = extractPriceFromText(data?.title || '');
     if (titlePrice) {
-      return { priceText: titlePrice, storeName: data?.publisher || storeName };
+      return { priceText: titlePrice, storeName: storeName || data?.publisher || null };
     }
 
-    return { priceText: null, storeName: data?.publisher || storeName };
+    return { priceText: null, storeName: storeName || data?.publisher || null };
   } catch {
-    // In caso di errore o timeout, non rompe nulla
+    // In caso di errore, blocco anti-bot (es. Amazon) o timeout, non rompe nulla
     return { priceText: null, storeName };
   }
 }

@@ -18,6 +18,8 @@ export const WhoAreYouModal: React.FC<WhoAreYouModalProps> = ({
 
   if (!isOpen) return null;
 
+  const individualMembers = members.filter((m) => !m.isGroup);
+
   const handleConfirm = () => {
     if (!selectedPending) return;
     confetti({
@@ -106,7 +108,7 @@ export const WhoAreYouModal: React.FC<WhoAreYouModalProps> = ({
               </div>
 
               <div className="grid grid-cols-2 sm:grid-cols-5 gap-2.5 sm:gap-3.5">
-                {members.map((member) => (
+                {individualMembers.map((member) => (
                   <button
                     key={member.id}
                     onClick={() => setSelectedPending(member)}
